@@ -1,6 +1,6 @@
 // Painel do gestor
-import { rotulosProdutos, slugPostos } from "./config.js";
-import { estado, escutarDados, escutarEmprestimos, buscarHistorico } from "./dados.js";
+import { rotulosProdutos, slugPostos, unidade } from "./config.js";
+import { estado, escutarDados, escutarEmprestimos, buscarHistorico, analisarHistorico } from "./dados.js";
 import { cardPosto, tanquesBaixos } from "./cards.js";
 import { montarFormEmprestimo, desenharEmprestimosGestor } from "./emprestimos.js";
 import { $, esc, num, hojeISO, limitesDoDia, contarAte } from "./util.js";
@@ -33,55 +33,80 @@ export function abrirGestor() {
 
 const nomeBonito = (n) => String(n).toLowerCase().replace(/(^|\s)\S/g, l => l.toUpperCase());
 
-// Soma os fechamentos de turno enviados hoje
+// Soma os fechamentos de turno enviados hoje (cada fechamento conta uma vez só)
 export async function atualizarVendasHoje() {
     const geral = $('vendas-geral'), porPosto = $('vendas-postos');
-    geral.innerHTML = '<div class="esqueleto esqueleto-grande"></div><div class="esqueleto"></div><div class="esqueleto"></div>';
+    geral.innerHTML = '<div class="esqueleto esqueleto-grande"></div><div class="esqueleto"></div>';
     porPosto.innerHTML = '<div class="esqueleto"></div><div class="esqueleto"></div>';
 
-    const [inicio, fim] = limitesDoDia(hojeISO());
+    const hoje = hojeISO();
+    const [inicio, fim] = limitesDoDia(hoje);
     const totais = {};
     let totalRede = 0;
-    const linhas = [];
+    const comVenda = [], semVenda = [];
 
     for (const posto of estado.postos) {
         const vendas = {};
-        let totalPosto = 0;
+        let totalPosto = 0, ultimo = null, qtd = 0;
         try {
-            const hist = await buscarHistorico(posto, inicio, fim);
-            Object.values(hist).forEach(reg => {
-                if (reg.tipoEnvio !== "Fechamento de Turno") return;
+            const { validos } = analisarHistorico(await buscarHistorico(posto, inicio, fim), hoje);
+            qtd = validos.length;
+            validos.forEach(({ ts, reg }) => {
+                ultimo = ts;
                 Object.entries(reg.valores || {}).forEach(([p, v]) => {
                     if (!rotulosProdutos[p]) return;
                     const n = Number(v?.vendido) || 0;
-                    if (n > 0) { vendas[p] = (vendas[p] || 0) + n; totais[p] = (totais[p] || 0) + n; totalPosto += n; totalRede += n; }
+                    if (n <= 0) return;
+                    vendas[p] = (vendas[p] || 0) + n;
+                    totais[p] = (totais[p] || 0) + n;
+                    if (p !== 'arla_b') { totalPosto += n; totalRede += n; }
                 });
             });
         } catch (e) { console.error('Erro ao buscar vendas', e); }
-        linhas.push({ posto, totalPosto, vendas });
+        (qtd ? comVenda : semVenda).push({ posto, totalPosto, vendas, ultimo, qtd });
     }
 
-    const resumo = $('gestor-total-resumo');
-    resumo.textContent = totalRede ? `${num(totalRede)} L hoje` : 'Sem vendas ainda';
+    $('gestor-total-resumo').textContent = totalRede ? `${num(totalRede)} L hoje` : 'Sem vendas ainda';
 
-    if (!totalRede) {
+    if (!comVenda.length) {
         geral.innerHTML = '<div class="vazio-lista">As vendas do dia aparecem aqui assim que as pistas enviarem os fechamentos de turno.</div>';
     } else {
         geral.innerHTML = `
-            <div class="kpi-total"><span>Total da rede hoje</span><strong><span id="kpi-total-valor">0</span> L</strong></div>
-            <div class="kpi-produtos">${Object.entries(totais).sort((a, b) => b[1] - a[1]).map(([p, n], i) =>
-                `<div class="kpi-produto entrar" style="--i:${i}"><span>${rotulosProdutos[p]}</span><strong>${num(n)} L</strong></div>`).join('')}</div>`;
+            <div class="kpi-total"><span>Total da rede hoje</span><strong><span id="kpi-total-valor">0</span> L</strong>
+                <small>${comVenda.reduce((s, x) => s + x.qtd, 0)} fechamento(s) de ${comVenda.length} posto(s)</small></div>
+            <div class="kpi-produtos">${ordenarProdutos(totais).map(([p, n], i) =>
+                `<div class="kpi-produto entrar" style="--i:${i}"><span>${rotulosProdutos[p]}</span><strong>${num(n)} ${unidade(p)}</strong></div>`).join('')}</div>`;
         contarAte($('kpi-total-valor'), totalRede);
     }
 
-    const maior = Math.max(1, ...linhas.map(l => l.totalPosto));
-    porPosto.innerHTML = linhas.sort((a, b) => b.totalPosto - a.totalPosto).map(({ posto, totalPosto, vendas }, i) => `
-        <div class="venda-posto ${totalPosto ? '' : 'vazio'} entrar" style="--i:${i}">
-            <div class="venda-posto-linha">
-                <strong>${esc(posto)}</strong>
-                <span>${totalPosto ? num(totalPosto) + ' L' : 'sem fechamento hoje'}</span>
+    const hora = (ts) => new Date(Number(ts)).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+    porPosto.innerHTML = comVenda.sort((a, b) => b.totalPosto - a.totalPosto).map(({ posto, totalPosto, vendas, ultimo, qtd }, i) => {
+        const itens = ordenarProdutos(vendas);
+        const maior = Math.max(1, ...itens.filter(([p]) => p !== 'arla_b').map(([, n]) => n));
+        return `<article class="venda-posto entrar" style="--i:${i}">
+            <header class="venda-posto-topo">
+                <div><strong>${esc(posto)}</strong><small>${qtd} fechamento${qtd > 1 ? 's' : ''} · último às ${hora(ultimo)}</small></div>
+                <span class="venda-posto-total">${num(totalPosto)} L</span>
+            </header>
+            <div class="venda-produtos">${itens.map(([p, n]) => `
+                <div class="venda-produto ${p.startsWith('arla') ? 'arla' : ''}">
+                    <div class="venda-produto-linha"><span>${rotulosProdutos[p]}</span><b>${num(n)} ${unidade(p)}</b></div>
+                    ${p === 'arla_b' ? '' : `<div class="barra barra-fina"><div class="nivel-verde" style="--pct:${Math.round((n / maior) * 100)}%"></div></div>`}
+                </div>`).join('')}
             </div>
-            <div class="barra barra-fina"><div class="nivel-verde" style="--pct:${Math.round((totalPosto / maior) * 100)}%"></div></div>
-            ${totalPosto ? `<p class="venda-detalhe">${Object.entries(vendas).map(([p, n]) => `${rotulosProdutos[p]}: <b>${num(n)} L</b>`).join(' · ')}</p>` : ''}
-        </div>`).join('');
+        </article>`;
+    }).join('') + (semVenda.length ? `
+        <div class="sem-fechamento">
+            <span>${icone('relogio')} Sem fechamento hoje:</span>
+            ${semVenda.map(({ posto }) => `<span class="chip chip-cinza">${esc(posto)}</span>`).join('')}
+        </div>` : '');
+}
+
+// Combustíveis primeiro (do maior para o menor), ARLA no fim
+function ordenarProdutos(obj) {
+    return Object.entries(obj).sort((a, b) => {
+        const arlaA = a[0].startsWith('arla'), arlaB = b[0].startsWith('arla');
+        if (arlaA !== arlaB) return arlaA ? 1 : -1;
+        return b[1] - a[1];
+    });
 }

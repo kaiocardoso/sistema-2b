@@ -25,7 +25,7 @@ export function abrirGerente() {
         produtos.forEach(p => { valores[p] = { regua: $(`rapido-${p}`).value }; });
         await comEspera(e.submitter, async () => {
             try {
-                await salvarPosto({ dataFormatada: agoraFormatado(), tipoEnvio: `Atualização Gerente (${posto})`, valores });
+                await salvarPosto({ dataFormatada: agoraFormatado(), tipoEnvio: `Atualização Gerente (${posto})`, valores }, 'atualizacao');
                 aviso('Atualização de estoque salva!');
                 $('form-rapido').reset();
             } catch (err) { aviso('Não foi salvo: ' + err.message, 'erro'); }

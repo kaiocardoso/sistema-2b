@@ -1,6 +1,6 @@
 // Janela do histórico (LMC e auditoria)
 import { bicosPostos, rotulosProdutos, getProdutosPermitidos, unidade } from "./config.js";
-import { estado, buscarHistorico } from "./dados.js";
+import { estado, buscarHistorico, analisarHistorico } from "./dados.js";
 import { $, esc, num, temValor, hojeISO, limitesDoDia } from "./util.js";
 
 export function abrirHistorico(soMeuPosto) {
@@ -17,17 +17,20 @@ export function abrirHistorico(soMeuPosto) {
 
 export function fecharHistorico() { $('janela-historico').classList.add('oculto'); }
 
+const hora = (ts) => new Date(Number(ts)).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+
 async function carregar() {
     const posto = $('historico-posto').value, dia = $('historico-data').value;
     if (!posto || !dia) return;
     const lista = $('historico-lista');
-    lista.innerHTML = '<p class="texto-carregando">Buscando lançamentos...</p>';
+    lista.innerHTML = '<div class="esqueleto"></div><div class="esqueleto"></div>';
     try {
         const [inicio, fim] = limitesDoDia(dia);
         const dados = await buscarHistorico(posto, inicio, fim);
-        const chaves = Object.keys(dados).sort((a, b) => b - a);
+        const analise = analisarHistorico(dados, dia);
+        const chaves = Object.keys(dados).filter(ts => /^[0-9]+$/.test(ts)).sort((a, b) => b - a);
         lista.innerHTML = chaves.length
-            ? chaves.map((ts, i) => registro(dados[ts], new Date(Number(ts)).toLocaleTimeString('pt-BR'), posto, i)).join('')
+            ? chaves.map((ts, i) => registro(dados[ts], ts, posto, analise, i)).join('')
             : '<div class="vazio-lista">Nenhum registro neste dia.</div>';
     } catch (e) {
         console.error(e);
@@ -35,7 +38,21 @@ async function carregar() {
     }
 }
 
-function registro(info, hora, posto, i = 0) {
+// Etiqueta de cada registro: o que ele foi e se conta nas vendas
+function etiqueta(info, ts, analise) {
+    if (analise.substituidos.has(ts)) return ['Substituído por correção', 'chip-cinza', true];
+    switch (info.evento) {
+        case 'fechamento': return ['Fechamento de turno', 'chip-verde'];
+        case 'correcao': return [`Correção do fechamento das ${hora(info.substitui)}`, 'chip-azul'];
+        case 'encerrantes': return ['Encerrantes', 'chip-amarelo'];
+        case 'atualizacao': return ['Atualização do gerente', 'chip-amarelo'];
+    }
+    if (analise.idsValidos.has(ts)) return ['Fechamento de turno', 'chip-verde'];
+    return [info.tipoEnvio || 'Envio', 'chip-cinza'];
+}
+
+function registro(info, ts, posto, analise, i = 0) {
+    const [texto, cor, riscado] = etiqueta(info, ts, analise);
     const tanques = getProdutosPermitidos(posto).map(p => {
         const v = info?.valores?.[p]?.regua;
         return `<div class="registro-linha"><span>${rotulosProdutos[p]}</span>${temValor(v) ? `<strong>${num(Number(v))} ${unidade(p)}</strong>` : '<span class="sem-info">–</span>'}</div>`;
@@ -46,8 +63,8 @@ function registro(info, hora, posto, i = 0) {
             return `<div class="registro-linha"><span>Bico ${b.id}</span>${temValor(e) ? `<strong>${num(Number(e))}</strong>` : '<span class="sem-info">–</span>'}</div>`;
         }).join('')
         : '<p class="texto-suave">Sem encerrantes.</p>';
-    return `<div class="registro entrar" style="--i:${Math.min(i, 8)}">
-        <div class="registro-topo"><span>${esc(hora)}${info.enviadoPorNome ? ' · ' + esc(info.enviadoPorNome) : ''}</span><span class="etiqueta etiqueta-azul">${esc(info.tipoEnvio || 'Envio')}</span></div>
+    return `<div class="registro ${riscado ? 'substituido' : ''} entrar" style="--i:${Math.min(i, 8)}">
+        <div class="registro-topo"><span>${new Date(Number(ts)).toLocaleTimeString('pt-BR')}${info.enviadoPorNome ? ' · ' + esc(info.enviadoPorNome) : ''}</span><span class="chip ${cor}">${esc(texto)}</span></div>
         <div class="registro-corpo">
             <div><h4 class="titulo-tanques">Tanques</h4>${tanques}</div>
             <div><h4 class="titulo-encerrantes">Encerrantes</h4>${bicos}</div>

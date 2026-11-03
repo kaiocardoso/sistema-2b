@@ -1,9 +1,17 @@
 // Tela do caixa / pista: encerrantes e fechamento de turno
 import { bicosPostos, rotulosProdutos, getProdutosPermitidos, unidade } from "./config.js";
-import { estado, salvarPosto, escutarDados } from "./dados.js";
-import { $, esc, num, temValor, agoraFormatado, aviso, comEspera } from "./util.js";
+import { estado, salvarPosto, escutarDados, buscarHistorico, analisarHistorico } from "./dados.js";
+import { $, esc, num, temValor, agoraFormatado, aviso, comEspera, hojeISO, limitesDoDia } from "./util.js";
+import { icone } from "./icones.js";
+import { abrirSecao } from "./secoes.js";
 
 let produtos = [];
+let ultimoFechamento = null;   // { ts, reg } do último fechamento de hoje
+let correcao = null;           // fechamento que está sendo corrigido
+
+const TEXTO_BOTAO = `${icone('mensagem')} Salvar e copiar para o WhatsApp`;
+const TEXTO_BOTAO_CORRECAO = `${icone('mensagem')} Salvar correção e copiar para o WhatsApp`;
+const horaDe = (ts) => new Date(Number(ts)).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
 
 export function abrirCaixa() {
     const posto = estado.postoAtivo;
@@ -13,6 +21,7 @@ export function abrirCaixa() {
     desenharReferencia();
     estado.aoMudarDados = (p) => { if (p === posto) desenharReferencia(); };
     escutarDados();
+    carregarUltimoFechamento();
 }
 
 // Os campos são montados UMA VEZ, para não apagar o que está sendo digitado
@@ -47,10 +56,13 @@ function montarFormularios() {
             <div class="celula"><label>Diferença</label><div id="${p}-dif" class="resultado">0</div></div>
         </div>`).join('');
     $('total-vendido').textContent = '0';
+    $('botao-fechamento').innerHTML = TEXTO_BOTAO;
 
     $('planilha-linhas').oninput = (e) => { if (e.target.dataset.produto) calcularLinha(e.target.dataset.produto); };
     $('form-encerrantes').onsubmit = salvarEncerrantes;
     $('form-planilha').onsubmit = salvarPlanilha;
+    $('ultimo-fechamento').onclick = (e) => { if (e.target.closest('[data-correcao="editar"]')) iniciarCorrecao(); };
+    $('modo-correcao').onclick = (e) => { if (e.target.closest('[data-correcao="cancelar"]')) cancelarCorrecao(); };
 }
 
 function calcularLinha(p) {
@@ -62,19 +74,33 @@ function calcularLinha(p) {
     difEl.textContent = num(dif);
     difEl.className = 'resultado ' + (dif < 0 ? 'negativo' : dif > 0 ? 'positivo' : '');
     difEl.dataset.valor = dif;
-    const total = produtos.reduce((s, prod) => s + (Number($(`${prod}-ven`).value) || 0), 0);
-    const totalEl = $('total-vendido');
-    totalEl.textContent = num(total);
-    totalEl.parentElement.classList.remove('pulso'); void totalEl.offsetWidth; totalEl.parentElement.classList.add('pulso');
+    atualizarTotal();
+}
+
+// Total em litros (o ARLA balde é contado em unidades, por isso fica à parte)
+function totais() {
+    const litros = produtos.filter(p => p !== 'arla_b').reduce((s, p) => s + (Number($(`${p}-ven`).value) || 0), 0);
+    const balde = produtos.includes('arla_b') ? (Number($('arla_b-ven').value) || 0) : 0;
+    return { litros, balde };
+}
+
+function atualizarTotal() {
+    const { litros, balde } = totais();
+    const el = $('total-vendido');
+    el.textContent = num(litros);
+    $('total-balde').textContent = balde ? `+ ${num(balde)} un de ARLA balde` : '';
+    const barra = el.closest('.total-vendido');
+    barra.classList.remove('pulso'); void barra.offsetWidth; barra.classList.add('pulso');
 }
 
 function limparPlanilha() {
     $('form-planilha').reset();
-    $('total-vendido').textContent = '0';
     produtos.forEach(p => {
         $(`${p}-fin`).textContent = '0';
         const d = $(`${p}-dif`); d.textContent = '0'; d.className = 'resultado'; d.dataset.valor = 0;
     });
+    $('total-vendido').textContent = '0';
+    $('total-balde').textContent = '';
 }
 
 function desenharReferencia() {
@@ -116,13 +142,77 @@ function desenharReferencia() {
         <div class="ref-bloco"><h4>Encerrantes anteriores</h4><div class="ref-rolagem">${bicos}</div></div>`;
 }
 
+// ---------- Último fechamento e correção ----------
+const litrosDe = (reg) => Object.entries(reg?.valores || {}).reduce((s, [p, v]) => p === 'arla_b' ? s : s + (Number(v?.vendido) || 0), 0);
+
+async function carregarUltimoFechamento() {
+    const caixa = $('ultimo-fechamento');
+    try {
+        const hoje = hojeISO();
+        const [inicio, fim] = limitesDoDia(hoje);
+        const { validos } = analisarHistorico(await buscarHistorico(estado.postoAtivo, inicio, fim), hoje);
+        ultimoFechamento = validos.at(-1) || null;
+    } catch (e) {
+        console.error(e);
+        ultimoFechamento = null;
+    }
+    desenharUltimoFechamento();
+    caixa.classList.remove('oculto');
+}
+
+function desenharUltimoFechamento() {
+    const caixa = $('ultimo-fechamento');
+    if (correcao) { caixa.classList.add('oculto'); return; }
+    caixa.classList.remove('oculto');
+    if (!ultimoFechamento) {
+        caixa.innerHTML = `<span class="ultimo-texto">${icone('relogio')} Nenhum fechamento enviado hoje ainda.</span>`;
+        return;
+    }
+    const { ts, reg } = ultimoFechamento;
+    caixa.innerHTML = `
+        <span class="ultimo-texto">${icone('check')} Último fechamento de hoje: <b>${horaDe(ts)}</b> · ${num(litrosDe(reg))} L${reg.evento === 'correcao' ? ' <span class="chip chip-azul">corrigido</span>' : ''}</span>
+        <button type="button" class="botao botao-claro botao-mini" data-correcao="editar">${icone('lapis')} Editar último fechamento</button>`;
+}
+
+function iniciarCorrecao() {
+    if (!ultimoFechamento) return;
+    correcao = ultimoFechamento;
+    limparPlanilha();
+    produtos.forEach(p => {
+        const v = correcao.reg.valores?.[p] || {};
+        $(`${p}-ini`).value = v.inicial ?? '';
+        $(`${p}-des`).value = v.descarga ?? '';
+        $(`${p}-ven`).value = v.vendido ?? '';
+        $(`${p}-reg`).value = v.regua ?? '';
+        calcularLinha(p);
+    });
+    $('modo-correcao').innerHTML = `
+        <div class="correcao-texto">${icone('lapis')}<div><b>Corrigindo o fechamento das ${horaDe(correcao.ts)}</b>
+        <span>Os valores enviados foram carregados abaixo. Corrija o que estiver errado e salve: o fechamento anterior será substituído e não soma de novo nas vendas do dia.</span></div></div>
+        <button type="button" class="botao botao-claro botao-mini" data-correcao="cancelar">Cancelar correção</button>`;
+    $('modo-correcao').classList.remove('oculto');
+    $('botao-fechamento').innerHTML = TEXTO_BOTAO_CORRECAO;
+    desenharUltimoFechamento();
+    abrirSecao('caixa-fechamento');
+    $('modo-correcao').scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+function cancelarCorrecao() {
+    correcao = null;
+    limparPlanilha();
+    $('modo-correcao').classList.add('oculto');
+    $('botao-fechamento').innerHTML = TEXTO_BOTAO;
+    desenharUltimoFechamento();
+}
+
+// ---------- Salvar ----------
 async function salvarEncerrantes(e) {
     e.preventDefault();
     const enc = {};
     (bicosPostos[estado.postoAtivo] || []).forEach(b => enc[b.id] = $(`bico-${b.id}`).value);
     await comEspera(e.submitter, async () => {
         try {
-            await salvarPosto({ dataEncerrantes: agoraFormatado(), encerrantes: enc });
+            await salvarPosto({ dataEncerrantes: agoraFormatado(), encerrantes: enc }, 'encerrantes');
             aviso('Leituras dos encerrantes salvas!');
             $('form-encerrantes').reset();
         } catch (err) {
@@ -134,8 +224,10 @@ async function salvarEncerrantes(e) {
 async function salvarPlanilha(e) {
     e.preventDefault();
     const posto = estado.postoAtivo;
+    const corrigindo = correcao;
     const valores = {};
-    let txt = `📊 *FECHAMENTO - 2B*\n🏢 Posto: ${posto}\n🕒 Horário: ${new Date().toLocaleString('pt-BR')}\n\n`;
+    let txt = corrigindo ? `✏️ *CORREÇÃO do fechamento das ${horaDe(corrigindo.ts)}*\n` : '';
+    txt += `📊 *FECHAMENTO - 2B*\n🏢 Posto: ${posto}\n🕒 Horário: ${new Date().toLocaleString('pt-BR')}\n\n`;
 
     produtos.forEach(p => {
         const s = (t) => $(`${p}-${t}`).value;
@@ -156,7 +248,9 @@ async function salvarPlanilha(e) {
         if (val !== '') { temEnc = true; txtEnc += `Bico ${b.id}: ${val}\n`; }
     });
     if (temEnc) txt += txtEnc + '\n';
-    txt += `💧 *TOTAL VENDIDO (LITROS):* ${$('total-vendido').textContent} L`;
+    const { litros, balde } = totais();
+    txt += `💧 *TOTAL VENDIDO (LITROS):* ${num(litros)} L`;
+    if (balde) txt += `\n🪣 *ARLA BALDE:* ${num(balde)} un`;
 
     // Copia primeiro: o navegador só deixa copiar logo após o clique
     let copiou = false;
@@ -164,12 +258,15 @@ async function salvarPlanilha(e) {
 
     await comEspera(e.submitter, async () => {
         try {
-            await salvarPosto({ dataFormatada: agoraFormatado(), tipoEnvio: "Fechamento de Turno", valores });
+            const extras = corrigindo ? { substitui: String(corrigindo.ts), ...(corrigindo.reg.dataFormatada ? { substituiData: corrigindo.reg.dataFormatada } : {}) } : {};
+            await salvarPosto({ dataFormatada: agoraFormatado(), tipoEnvio: "Fechamento de Turno", valores }, corrigindo ? 'correcao' : 'fechamento', extras);
         } catch (err) {
             aviso('A planilha NÃO foi salva: ' + err.message + '\nNão apague os dados e tente de novo.', 'erro');
             return;
         }
-        aviso(copiou ? 'Fechamento salvo e copiado! É só colar no WhatsApp.' : 'Fechamento salvo, mas não deu para copiar o texto.', copiou ? 'ok' : 'info');
-        limparPlanilha();
+        const msg = corrigindo ? 'Correção salva! O fechamento anterior foi substituído.' : 'Fechamento salvo!';
+        aviso(copiou ? `${msg} O texto foi copiado, é só colar no WhatsApp.` : `${msg} Mas não deu para copiar o texto.`, copiou ? 'ok' : 'info');
+        cancelarCorrecao();
+        carregarUltimoFechamento();
     });
 }

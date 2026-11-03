@@ -17,7 +17,8 @@ const caminhos = {
     flecha: '<path d="M4 12h15"/><path d="m14 6 6 6-6 6"/>',
     alerta: '<path d="M12 3 2 20h20z"/><path d="M12 10v4"/><path d="M12 17.2v.3"/>',
     compartilhar: '<path d="M12 3v12"/><path d="m8 7 4-4 4 4"/><path d="M6 11H5a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-8a1 1 0 0 0-1-1h-1"/>',
-    usuario: '<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>'
+    usuario: '<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>',
+    lapis: '<path d="M4 20h4L19 9a2.8 2.8 0 0 0-4-4L4 16z"/><path d="m13.5 6.5 4 4"/>'
 };
 
 export function icone(nome, classe = '') {

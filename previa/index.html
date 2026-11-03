@@ -96,7 +96,7 @@
                 </div>
             </div>
 
-            <section class="secao entrar" style="--i:1" data-secao="caixa-referencia" data-padrao="fechada">
+            <section class="secao tom-cinza entrar" style="--i:1" data-secao="caixa-referencia" data-padrao="fechada">
                 <button type="button" class="secao-cabeca">
                     <span class="secao-icone icone-cinza"><i data-icone="relogio"></i></span>
                     <span class="secao-titulos"><strong>Turno anterior</strong><small>Último estoque e encerrantes salvos</small></span>
@@ -108,7 +108,7 @@
                 </div></div>
             </section>
 
-            <section class="secao entrar" style="--i:2" data-secao="caixa-encerrantes">
+            <section class="secao tom-azul entrar" style="--i:2" data-secao="caixa-encerrantes">
                 <button type="button" class="secao-cabeca">
                     <span class="secao-icone icone-azul">1</span>
                     <span class="secao-titulos"><strong>Leitura dos encerrantes</strong><small>Leitura atual de cada bico</small></span>
@@ -123,7 +123,7 @@
                 </div></div>
             </section>
 
-            <section class="secao entrar" style="--i:3" data-secao="caixa-fechamento">
+            <section class="secao tom-amarelo entrar" style="--i:3" data-secao="caixa-fechamento">
                 <button type="button" class="secao-cabeca">
                     <span class="secao-icone icone-vermelho">2</span>
                     <span class="secao-titulos"><strong>Fechamento de turno</strong><small>Estoque, vendas e régua de cada produto</small></span>
@@ -132,6 +132,8 @@
                 </button>
                 <div class="secao-corpo"><div class="secao-interno">
                     <form id="form-planilha">
+                        <div id="ultimo-fechamento" class="ultimo-fechamento"></div>
+                        <div id="modo-correcao" class="modo-correcao oculto"></div>
                         <p class="formula">Estoque final = inicial + descarga − vendido &nbsp;·&nbsp; Diferença = régua − estoque final</p>
                         <div class="planilha">
                             <div class="planilha-cabecalho">
@@ -141,9 +143,12 @@
                         </div>
                         <div class="total-vendido">
                             <span>Total vendido no turno</span>
-                            <strong><span id="total-vendido">0</span> L</strong>
+                            <div class="total-valores">
+                                <strong><span id="total-vendido">0</span> L</strong>
+                                <small id="total-balde" class="total-extra"></small>
+                            </div>
                         </div>
-                        <button type="submit" class="botao botao-whatsapp botao-grande"><i data-icone="mensagem"></i> Salvar e copiar para o WhatsApp</button>
+                        <button type="submit" id="botao-fechamento" class="botao botao-whatsapp botao-grande"><i data-icone="mensagem"></i> Salvar e copiar para o WhatsApp</button>
                     </form>
                 </div></div>
             </section>
@@ -159,7 +164,7 @@
                 <button type="button" class="botao botao-claro" data-acao="historico-gerente"><i data-icone="relogio"></i> Meu histórico (LMC)</button>
             </div>
 
-            <section class="secao entrar" style="--i:1" data-secao="gerente-situacao">
+            <section class="secao tom-vermelho entrar" style="--i:1" data-secao="gerente-situacao">
                 <button type="button" class="secao-cabeca">
                     <span class="secao-icone icone-vermelho"><i data-icone="tanque"></i></span>
                     <span class="secao-titulos"><strong>Situação do posto</strong><small>Tanques e encerrantes em tempo real</small></span>
@@ -170,7 +175,7 @@
                 </div></div>
             </section>
 
-            <section class="secao entrar" style="--i:2" data-secao="gerente-rapido" data-padrao="fechada">
+            <section class="secao tom-amarelo entrar" style="--i:2" data-secao="gerente-rapido" data-padrao="fechada">
                 <button type="button" class="secao-cabeca">
                     <span class="secao-icone icone-amarelo"><i data-icone="raio"></i></span>
                     <span class="secao-titulos"><strong>Atualização rápida de estoque</strong><small>Para atualizar volumes fora do fechamento</small></span>
@@ -184,7 +189,7 @@
                 </div></div>
             </section>
 
-            <section class="secao entrar" style="--i:3" data-secao="gerente-emprestimos">
+            <section class="secao tom-azul entrar" style="--i:3" data-secao="gerente-emprestimos">
                 <button type="button" class="secao-cabeca">
                     <span class="secao-icone icone-azul"><i data-icone="troca"></i></span>
                     <span class="secao-titulos"><strong>Empréstimos do posto</strong><small>Combustível emprestado e devolvido</small></span>
@@ -214,7 +219,7 @@
                 <button type="button" class="botao botao-claro" data-acao="historico-gestor"><i data-icone="relogio"></i> Histórico</button>
             </div>
 
-            <section class="secao entrar" style="--i:1" data-secao="gestor-vendas">
+            <section class="secao tom-verde entrar" style="--i:1" data-secao="gestor-vendas">
                 <button type="button" class="secao-cabeca">
                     <span class="secao-icone icone-verde"><i data-icone="grafico"></i></span>
                     <span class="secao-titulos"><strong>Vendas de hoje</strong><small>Soma dos fechamentos de turno enviados hoje</small></span>
@@ -231,7 +236,7 @@
                 </div></div>
             </section>
 
-            <section class="secao entrar" style="--i:2" data-secao="gestor-estoque">
+            <section class="secao tom-vermelho entrar" style="--i:2" data-secao="gestor-estoque">
                 <button type="button" class="secao-cabeca">
                     <span class="secao-icone icone-vermelho"><i data-icone="tanque"></i></span>
                     <span class="secao-titulos"><strong>Estoque dos postos</strong><small>Tanques e encerrantes em tempo real</small></span>
@@ -243,7 +248,7 @@
                 </div></div>
             </section>
 
-            <section class="secao entrar" style="--i:3" data-secao="gestor-emprestimos">
+            <section class="secao tom-azul entrar" style="--i:3" data-secao="gestor-emprestimos">
                 <button type="button" class="secao-cabeca">
                     <span class="secao-icone icone-azul"><i data-icone="troca"></i></span>
                     <span class="secao-titulos"><strong>Empréstimos entre postos</strong><small>Remanejamentos e devoluções</small></span>
