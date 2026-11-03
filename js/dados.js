@@ -70,14 +70,54 @@ export async function buscarHistorico(posto, inicio, fim) {
     return snap.val() || {};
 }
 
-// Salva a situação do posto e acrescenta uma cópia no histórico.
+// Salva a situação do posto e acrescenta um registro no histórico.
+// "evento" diz o que gerou o registro: 'fechamento', 'correcao', 'encerrantes' ou 'atualizacao'.
+// Só 'fechamento' e 'correcao' contam nas vendas do dia.
 // "enviadoPor" é conferido pelas regras do banco.
-export async function salvarPosto(dadosNovos) {
+export async function salvarPosto(dadosNovos, evento, extrasHistorico = {}) {
     const posto = estado.postoAtivo;
-    const novo = { ...(estado.dados[posto] || {}), ...dadosNovos, enviadoPor: auth.currentUser.email, enviadoPorNome: estado.perfil.nome };
+    const { evento: _e, substitui: _s, substituiData: _d, ...anterior } = estado.dados[posto] || {};
+    const novo = { ...anterior, ...dadosNovos, enviadoPor: auth.currentUser.email, enviadoPorNome: estado.perfil.nome };
     await set(ref(db, `${CAMINHO.dados}/${posto}`), novo);
     estado.dados[posto] = novo;
-    await set(ref(db, `${CAMINHO.historico}/${posto}/${Date.now()}`), novo);
+    const ts = String(Date.now());
+    await set(ref(db, `${CAMINHO.historico}/${posto}/${ts}`), { ...novo, evento, ...extrasHistorico });
+    return ts;
+}
+
+// Quais registros do histórico de um dia são fechamentos de verdade (e contam nas vendas).
+// - Registros novos dizem o próprio "evento".
+// - Registros antigos (antes desta versão) copiavam o último fechamento a cada envio de
+//   encerrantes. Para não contar a cópia de novo, cada fechamento antigo conta uma vez só
+//   (pela data e hora do fechamento) e só no dia em que foi feito.
+// - Um fechamento corrigido ("substituído") deixa de contar; vale a correção.
+export function analisarHistorico(hist, iso) {
+    const [a, m, d] = iso.split('-');
+    const diaBR = `${d}/${m}/${a}`;
+    const entradas = Object.entries(hist || {}).filter(([ts]) => /^[0-9]+$/.test(ts)).sort((x, y) => x[0] - y[0]);
+    const substituidosTs = new Set(), substituidasDatas = new Set();
+    entradas.forEach(([, r]) => {
+        if (r?.evento !== 'correcao') return;
+        if (r.substitui) substituidosTs.add(String(r.substitui));
+        if (r.substituiData) substituidasDatas.add(r.substituiData);
+    });
+    const validos = [], substituidos = new Set(), vistos = new Set();
+    entradas.forEach(([ts, r]) => {
+        if (!r) return;
+        if (r.evento) {
+            if (r.evento !== 'fechamento' && r.evento !== 'correcao') return;
+            if (substituidosTs.has(ts)) { substituidos.add(ts); return; }
+            validos.push({ ts, reg: r });
+            return;
+        }
+        if (r.tipoEnvio !== 'Fechamento de Turno') return;
+        const quando = r.dataFormatada || '';
+        if (!quando.startsWith(diaBR) || vistos.has(quando)) return;
+        vistos.add(quando);
+        if (substituidosTs.has(ts) || substituidasDatas.has(quando)) { substituidos.add(ts); return; }
+        validos.push({ ts, reg: r });
+    });
+    return { validos, substituidos, idsValidos: new Set(validos.map(v => v.ts)) };
 }
 
 export function responsavel() {

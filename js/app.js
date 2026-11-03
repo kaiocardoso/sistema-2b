@@ -7,16 +7,24 @@ import { abrirGerente } from "./gerente.js";
 import { abrirGestor, atualizarVendasHoje } from "./gestor.js";
 import { abrirHistorico, fecharHistorico } from "./historico.js";
 import { ativarAcoesEmprestimo } from "./emprestimos.js";
-import { $, aviso, comEspera } from "./util.js";
+import { aplicarIcones } from "./icones.js";
+import { iniciarSecoes } from "./secoes.js";
+import { iniciarInstalacao, instalar } from "./instalar.js";
+import { $, aviso, comEspera, saudacao, dataPorExtenso } from "./util.js";
+
+aplicarIcones();
+iniciarSecoes();
+iniciarInstalacao();
 
 // ---------- Tela de login ----------
 let perfilEscolhido = 'caixa';
+const nomeBonito = (n) => String(n).toLowerCase().replace(/(^|\s)\S/g, l => l.toUpperCase());
 
 function preencherOpcoesLogin() {
-    const nomes = perfilEscolhido === 'gestor'
-        ? Object.keys(gestores).map(n => [n, n.charAt(0) + n.slice(1).toLowerCase().replace(/ (\w)/g, (m, l) => ' ' + l.toUpperCase())])
+    const opcoes = perfilEscolhido === 'gestor'
+        ? Object.keys(gestores).map(n => [n, nomeBonito(n)])
         : Object.keys(slugPostos).map(p => [p, p]);
-    $('login-quem').innerHTML = nomes.map(([v, t]) => `<option value="${v}">${t}</option>`).join('');
+    $('login-quem').innerHTML = opcoes.map(([v, t]) => `<option value="${v}">${t}</option>`).join('');
     $('login-quem-rotulo').textContent = perfilEscolhido === 'gestor' ? 'Gestor' : 'Posto';
     $('login-senha').placeholder = { caixa: 'Senha do caixa / posto', gerente: 'Senha do gerente', gestor: 'Senha do gestor' }[perfilEscolhido];
 }
@@ -55,6 +63,8 @@ $('form-login').addEventListener('submit', async (e) => {
         } catch (err) {
             console.error(err);
             aviso(mensagemErroLogin(err), 'erro');
+            const caixa = document.querySelector('.login-caixa');
+            caixa.classList.remove('tremer'); void caixa.offsetWidth; caixa.classList.add('tremer');
         }
     });
 });
@@ -83,8 +93,11 @@ function entrar(perfil) {
     iniciarEstado(perfil);
     $('tela-login').classList.add('oculto');
     $('usuario').classList.remove('oculto');
-    const titulo = { gestor: `Gestor: ${perfil.nome}`, gerente: `Gerente: ${estado.postoAtivo}`, caixa: `Caixa: ${estado.postoAtivo}` }[perfil.papel];
-    $('usuario-nome').textContent = titulo || perfil.nome;
+    const nome = { gestor: nomeBonito(perfil.nome), gerente: `Gerente ${estado.postoAtivo}`, caixa: `Caixa ${estado.postoAtivo}` }[perfil.papel] || perfil.nome;
+    $('usuario-nome').textContent = nome;
+    $('usuario-avatar').textContent = (perfil.papel === 'gestor' ? perfil.nome : perfil.papel).charAt(0).toUpperCase();
+    document.querySelectorAll('[data-hoje]').forEach(el => el.textContent = dataPorExtenso());
+    document.querySelectorAll('[data-ola]').forEach(el => el.textContent = saudacao());
 
     if (perfil.papel === 'gestor') abrirGestor();
     else if (perfil.papel === 'gerente') abrirGerente();
@@ -98,12 +111,13 @@ async function sair() {
     location.reload();
 }
 
-// ---------- Botões gerais (um único "ouvinte") ----------
+// ---------- Botões gerais ----------
 document.addEventListener('click', (e) => {
     const alvo = e.target.closest('[data-acao]');
     if (!alvo) return;
     const acao = alvo.dataset.acao;
     if (acao === 'sair') sair();
+    if (acao === 'instalar') instalar();
     if (acao === 'historico-gerente') abrirHistorico(true);
     if (acao === 'historico-gestor') abrirHistorico(false);
     if (acao === 'fechar-historico') fecharHistorico();
@@ -111,6 +125,12 @@ document.addEventListener('click', (e) => {
 });
 $('janela-historico').addEventListener('click', (e) => { if (e.target.id === 'janela-historico') fecharHistorico(); });
 document.addEventListener('keydown', (e) => { if (e.key === 'Escape') fecharHistorico(); });
+
+// Aviso de internet
+const atualizarConexao = () => $('sem-internet').classList.toggle('oculto', navigator.onLine);
+window.addEventListener('online', atualizarConexao);
+window.addEventListener('offline', atualizarConexao);
+atualizarConexao();
 
 ativarAcoesEmprestimo();
 preencherOpcoesLogin();

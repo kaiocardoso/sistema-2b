@@ -3,7 +3,7 @@ import { configPostos, rotulosProdutos, getProdutosPermitidos } from "./config.j
 import { estado, salvarPosto, escutarDados, escutarEmprestimos } from "./dados.js";
 import { cardPosto } from "./cards.js";
 import { montarFormEmprestimo, desenharEmprestimosGerente } from "./emprestimos.js";
-import { $, num, agoraFormatado, aviso, comEspera } from "./util.js";
+import { $, num, temValor, agoraFormatado, aviso, comEspera } from "./util.js";
 
 export function abrirGerente() {
     const posto = estado.postoAtivo;
@@ -14,8 +14,9 @@ export function abrirGerente() {
     $('campos-rapidos').innerHTML = produtos.map(p => {
         const max = configPostos[posto][p];
         const info = p === 'arla_b' ? 'unidades' : (max ? `máx. ${num(max)} L` : 'litros');
-        return `<div><label class="rotulo" for="rapido-${p}">${rotulosProdutos[p]} <small>${info}</small></label>
-            <input type="number" inputmode="decimal" step="any" id="rapido-${p}" class="campo" placeholder="Volume atual"></div>`;
+        return `<div class="campo-grupo"><label class="rotulo" for="rapido-${p}">${rotulosProdutos[p]} <small>${info}</small></label>
+            <input type="number" inputmode="decimal" step="any" id="rapido-${p}" class="campo" placeholder="Volume atual">
+            <small class="dica" id="rapido-${p}-ant"></small></div>`;
     }).join('');
 
     $('form-rapido').onsubmit = async (e) => {
@@ -24,7 +25,7 @@ export function abrirGerente() {
         produtos.forEach(p => { valores[p] = { regua: $(`rapido-${p}`).value }; });
         await comEspera(e.submitter, async () => {
             try {
-                await salvarPosto({ dataFormatada: agoraFormatado(), tipoEnvio: `Atualização Gerente (${posto})`, valores });
+                await salvarPosto({ dataFormatada: agoraFormatado(), tipoEnvio: `Atualização Gerente (${posto})`, valores }, 'atualizacao');
                 aviso('Atualização de estoque salva!');
                 $('form-rapido').reset();
             } catch (err) { aviso('Não foi salvo: ' + err.message, 'erro'); }
@@ -32,7 +33,14 @@ export function abrirGerente() {
     };
 
     montarFormEmprestimo('form-emprestimo-gerente');
-    estado.aoMudarDados = () => { $('gerente-card').innerHTML = cardPosto(posto, estado.dados[posto]); };
+    estado.aoMudarDados = () => {
+        const info = estado.dados[posto];
+        $('gerente-card').innerHTML = cardPosto(posto, info, { comEncerrantesAbertos: true });
+        produtos.forEach(p => {
+            const r = info?.valores?.[p]?.regua, el = $(`rapido-${p}-ant`);
+            if (el) el.textContent = temValor(r) ? `Atual: ${num(Number(r))}` : '';
+        });
+    };
     estado.aoMudarEmprestimos = desenharEmprestimosGerente;
     estado.aoMudarDados();
     desenharEmprestimosGerente();
