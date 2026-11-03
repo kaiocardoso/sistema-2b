@@ -19,8 +19,8 @@
     --whatsapp: #22B35C;
 
     --texto: #2A2421;
-    --texto-2: #6E6460;
-    --texto-3: #A39A95;
+    --texto-2: #5C534E;
+    --texto-3: #8A807A;
     --borda: #ECE6E1;
     --borda-forte: #DCD3CC;
     --fundo: #F7F4F0;
@@ -414,21 +414,52 @@ select.campo:disabled { background: #F4F0EC; color: var(--texto-2); }
 .registro.substituido { opacity: .55; }
 .registro.substituido .registro-corpo { text-decoration: line-through; text-decoration-color: rgba(0, 0, 0, .25); }
 
-/* ---------------- Cor de fundo de cada bloco ---------------- */
-.secao.tom-verde { background: #F1F9F4; border-color: #D3EDDF; }
-.secao.tom-vermelho { background: #FFF5F4; border-color: #F6DCDA; }
-.secao.tom-azul { background: #F2F6FE; border-color: #D8E4FA; }
-.secao.tom-amarelo { background: #FFF9EA; border-color: #F4E3AF; }
-.secao.tom-cinza { background: #F6F3F0; border-color: #E6DFD9; }
-.secao[class*="tom-"] > .secao-cabeca:hover { background: rgba(255, 255, 255, .55); }
-.secao[class*="tom-"] .secao-icone { background: #fff; box-shadow: 0 1px 4px rgba(42, 36, 33, .08); }
-.secao[class*="tom-"] > .secao-corpo > .secao-interno > :first-child { border-top-color: rgba(42, 36, 33, .08); }
+/* ---------------- Cor de cada bloco ----------------
+   Cada bloco tem: faixa do título (mais forte), fundo de dentro (mais claro),
+   borda e cor do texto do título. Os cartões de dentro ficam brancos com borda da mesma cor. */
+.secao.tom-verde    { --tom-cabeca: #CDEFDB; --tom-corpo: #E7F7EE; --tom-borda: #A9DDBF; --tom-texto: #0E5233; --tom-forte: #1E9E62; }
+.secao.tom-vermelho { --tom-cabeca: #FBD3D1; --tom-corpo: #FDEBEA; --tom-borda: #F2B7B4; --tom-texto: #8A1A1E; --tom-forte: #EC3237; }
+.secao.tom-azul     { --tom-cabeca: #D2E1FB; --tom-corpo: #E9F0FD; --tom-borda: #B5CBF3; --tom-texto: #193D86; --tom-forte: #2F6FDB; }
+.secao.tom-amarelo  { --tom-cabeca: #FCE7A2; --tom-corpo: #FFF5D6; --tom-borda: #EED27A; --tom-texto: #634400; --tom-forte: #B07D00; }
+.secao.tom-roxo     { --tom-cabeca: #E3D9FA; --tom-corpo: #F2EDFD; --tom-borda: #CDBDF2; --tom-texto: #45288A; --tom-forte: #6D46C9; }
+.secao.tom-cinza    { --tom-cabeca: #E3DCD5; --tom-corpo: #F1EDE9; --tom-borda: #D3C9C0; --tom-texto: #3A322E; --tom-forte: #6B615B; }
+
+.secao[class*="tom-"] { background: var(--tom-corpo); border: 1.5px solid var(--tom-borda); }
+.secao[class*="tom-"] > .secao-cabeca { background: var(--tom-cabeca); }
+.secao[class*="tom-"] > .secao-cabeca:hover { background: var(--tom-cabeca); filter: brightness(.97); }
+.secao[class*="tom-"].aberta > .secao-cabeca { border-bottom: 1.5px solid var(--tom-borda); }
+.secao[class*="tom-"] .secao-titulos strong { color: var(--tom-texto); }
+.secao[class*="tom-"] .secao-titulos small { color: var(--tom-texto); opacity: .8; }
+.secao[class*="tom-"] .secao-seta { color: var(--tom-texto); opacity: .7; }
+.secao[class*="tom-"] .secao-icone { background: #fff; color: var(--tom-forte); box-shadow: 0 1px 4px rgba(42, 36, 33, .1); }
+.secao[class*="tom-"] .secao-cabeca .chip { background: #fff; box-shadow: 0 1px 3px rgba(42, 36, 33, .1); }
+.secao[class*="tom-"] .secao-cabeca .chip-cinza { color: var(--tom-texto); }
+.secao[class*="tom-"] > .secao-corpo > .secao-interno > :first-child { border-top: 0; padding-top: 18px; }
+.secao[class*="tom-"] .rotulo-lista { color: var(--tom-texto); }
+
+/* cartões e campos de dentro: brancos, com a borda da cor do bloco */
 .secao[class*="tom-"] .campo-grupo,
 .secao[class*="tom-"] .ref-bloco,
 .secao[class*="tom-"] .formula,
+.secao[class*="tom-"] .ultimo-fechamento,
+.secao[class*="tom-"] .planilha,
 .secao[class*="tom-"] .kpi-produto,
-.secao[class*="tom-"] .sub-secao { background: #fff; }
-.secao[class*="tom-"] .planilha { background: #fff; }
-.secao[class*="tom-"] .linha-produto:nth-child(even) { background: #FCFAF8; }
-.secao[class*="tom-"] .vazio-lista { background: rgba(255, 255, 255, .7); }
-.secao[class*="tom-"] .emprestimo.pago { background: #fff; }
+.secao[class*="tom-"] .venda-posto,
+.secao[class*="tom-"] .card-posto,
+.secao[class*="tom-"] .emprestimo,
+.secao[class*="tom-"] .sub-secao,
+.secao[class*="tom-"] .registro { background: #fff; border-color: var(--tom-borda); }
+.secao[class*="tom-"] .emprestimo { border-left-color: var(--amarelo); }
+.secao[class*="tom-"] .emprestimo.pago { border-left-color: var(--verde); }
+.secao[class*="tom-"] .novo-emprestimo { border-color: var(--tom-forte); }
+.secao[class*="tom-"] .linha-produto { border-bottom-color: var(--tom-borda); }
+.secao[class*="tom-"] .linha-produto:nth-child(even) { background: #FFFBEF; }
+.secao[class*="tom-"] .planilha-cabecalho { background: var(--tom-cabeca); color: var(--tom-texto); }
+.secao[class*="tom-"] .vazio-lista { background: rgba(255, 255, 255, .75); border-color: var(--tom-borda); }
+.secao[class*="tom-"] .sem-fechamento { background: rgba(255, 255, 255, .75); border-color: var(--tom-borda); }
+.secao[class*="tom-"] .venda-posto-topo { background: #fff; }
+.secao[class*="tom-"] .card-posto-topo { border-bottom-color: var(--tom-borda); }
+
+/* foco do teclado sem a borda preta */
+.secao-cabeca:focus, .sub-cabeca:focus { outline: none; }
+.secao-cabeca:focus-visible, .sub-cabeca:focus-visible { box-shadow: inset 0 0 0 3px rgba(42, 36, 33, .35); }
