@@ -31,34 +31,34 @@
       ],
       ".read": "auth != null && auth.token.email != null && (root.child('perfis').child(auth.token.email.toLowerCase().replace('.', ',')).child('todos').val() === true || ((root.child('perfis').child(auth.token.email.toLowerCase().replace('.', ',')).child('papel').val() === 'gestor' || root.child('perfis').child(auth.token.email.toLowerCase().replace('.', ',')).child('papel').val() === 'gerente') && (query.orderByChild === 'origem' || query.orderByChild === 'destino') && query.equalTo != null && root.child('perfis').child(auth.token.email.toLowerCase().replace('.', ',')).child('postos').child(query.equalTo).val() === true))",
       "$id": {
-        ".write": "auth != null && auth.token.email != null && ((root.child('perfis').child(auth.token.email.toLowerCase().replace('.', ',')).child('papel').val() === 'gestor' && ((newData.exists() && (root.child('perfis').child(auth.token.email.toLowerCase().replace('.', ',')).child('postos').child(newData.child('origem').val()).val() === true || root.child('perfis').child(auth.token.email.toLowerCase().replace('.', ',')).child('postos').child(newData.child('destino').val()).val() === true)) || (!newData.exists() && (root.child('perfis').child(auth.token.email.toLowerCase().replace('.', ',')).child('postos').child(data.child('origem').val()).val() === true || root.child('perfis').child(auth.token.email.toLowerCase().replace('.', ',')).child('postos').child(data.child('destino').val()).val() === true)))) || (root.child('perfis').child(auth.token.email.toLowerCase().replace('.', ',')).child('papel').val() === 'gerente' && newData.exists() && (root.child('perfis').child(auth.token.email.toLowerCase().replace('.', ',')).child('postos').child(newData.child('origem').val()).val() === true || root.child('perfis').child(auth.token.email.toLowerCase().replace('.', ',')).child('postos').child(newData.child('destino').val()).val() === true) && (!data.exists() || (data.child('origem').val() === newData.child('origem').val() && data.child('destino').val() === newData.child('destino').val() && data.child('volume').val() === newData.child('volume').val() && data.child('produto').val() === newData.child('produto').val() && data.child('data').val() === newData.child('data').val()))))",
-        ".validate": "newData.hasChildren(['data', 'origem', 'destino', 'produto', 'volume', 'devolvido', 'status', 'atualizadoPorEmail']) && newData.child('origem').val() !== newData.child('destino').val()",
+        ".write": "auth != null && auth.token.email != null && ((root.child('perfis').child(auth.token.email.toLowerCase().replace('.', ',')).child('papel').val() === 'gestor' && (root.child('perfis').child(auth.token.email.toLowerCase().replace('.', ',')).child('todos').val() === true || (newData.exists() && (root.child('perfis').child(auth.token.email.toLowerCase().replace('.', ',')).child('postos').child(newData.child('origem').val()).val() === true || root.child('perfis').child(auth.token.email.toLowerCase().replace('.', ',')).child('postos').child(newData.child('destino').val()).val() === true)) || (!newData.exists() && (root.child('perfis').child(auth.token.email.toLowerCase().replace('.', ',')).child('postos').child(data.child('origem').val()).val() === true || root.child('perfis').child(auth.token.email.toLowerCase().replace('.', ',')).child('postos').child(data.child('destino').val()).val() === true)))) || (root.child('perfis').child(auth.token.email.toLowerCase().replace('.', ',')).child('papel').val() === 'gerente' && newData.exists() && (root.child('perfis').child(auth.token.email.toLowerCase().replace('.', ',')).child('postos').child(newData.child('origem').val()).val() === true || root.child('perfis').child(auth.token.email.toLowerCase().replace('.', ',')).child('postos').child(newData.child('destino').val()).val() === true) && (!data.exists() || (data.child('origem').val() === newData.child('origem').val() && data.child('destino').val() === newData.child('destino').val() && data.child('volume').val() === newData.child('volume').val() && data.child('produto').val() === newData.child('produto').val() && data.child('data').val() === newData.child('data').val()))))",
+        ".validate": "newData.hasChildren(['origem', 'destino', 'volume', 'status', 'atualizadoPorEmail']) && (data.exists() || (newData.hasChildren(['data', 'produto', 'devolvido']) && newData.child('origem').val() !== newData.child('destino').val()))",
         "data": {
-          ".validate": "newData.isString() && newData.val().length === 10 && newData.val().matches(/^[0-9]+-[0-9]+-[0-9]+$/)"
+          ".validate": "(data.exists() && newData.val() === data.val()) || (newData.isString() && newData.val().length === 10 && newData.val().matches(/^[0-9]+-[0-9]+-[0-9]+$/))"
         },
         "origem": {
-          ".validate": "newData.isString() && newData.val().length <= 60"
+          ".validate": "(data.exists() && newData.val() === data.val()) || (newData.isString() && newData.val().length <= 60)"
         },
         "destino": {
-          ".validate": "newData.isString() && newData.val().length <= 60"
+          ".validate": "(data.exists() && newData.val() === data.val()) || (newData.isString() && newData.val().length <= 60)"
         },
         "produto": {
-          ".validate": "newData.isString() && (newData.val() === 'DIESEL S-10' || newData.val() === 'DIESEL S-500' || newData.val() === 'GAS. COMUM' || newData.val() === 'GAS. ADITIVADA' || newData.val() === 'ETANOL')"
+          ".validate": "(data.exists() && newData.val() === data.val()) || (newData.isString() && (newData.val() === 'DIESEL S-10' || newData.val() === 'DIESEL S-500' || newData.val() === 'GAS. COMUM' || newData.val() === 'GAS. ADITIVADA' || newData.val() === 'ETANOL'))"
         },
         "volume": {
-          ".validate": "newData.isNumber() && newData.val() > 0"
+          ".validate": "(data.exists() && newData.val() === data.val()) || (newData.isNumber() && newData.val() > 0)"
         },
         "devolvido": {
-          ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= newData.parent().child('volume').val()"
+          ".validate": "newData.isNumber() && newData.val() >= 0 && (!newData.parent().child('volume').isNumber() || newData.val() <= newData.parent().child('volume').val())"
         },
         "status": {
-          ".validate": "newData.val() === 'pendente' || (newData.val() === 'pago' && newData.parent().child('devolvido').val() >= newData.parent().child('volume').val())"
+          ".validate": "newData.val() === 'pendente' || (newData.val() === 'pago' && (!newData.parent().child('volume').isNumber() || newData.parent().child('devolvido').val() >= newData.parent().child('volume').val()))"
         },
         "timestamp": {
-          ".validate": "newData.isNumber()"
+          ".validate": "(data.exists() && newData.val() === data.val()) || newData.isNumber()"
         },
         "criadoPor": {
-          ".validate": "newData.isString() && newData.val().length <= 120"
+          ".validate": "(data.exists() && newData.val() === data.val()) || (newData.isString() && newData.val().length <= 120)"
         },
         "atualizadoPor": {
           ".validate": "newData.isString() && newData.val().length <= 200"
@@ -70,7 +70,7 @@
           ".validate": "newData.val() === auth.token.email"
         },
         "$outro": {
-          ".validate": false
+          ".validate": "(data.exists() && newData.val() === data.val())"
         }
       }
     }

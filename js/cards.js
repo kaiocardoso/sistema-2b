@@ -14,6 +14,8 @@ export function tanquesBaixos(posto, info) {
     }).length;
 }
 
+const quem = (info) => (info?.tipoEnvio === 'Fechamento de Turno' && info.responsavelFechamento) ? info.responsavelFechamento : info?.enviadoPorNome;
+
 export function cardPosto(posto, info, { comEncerrantesAbertos = false } = {}) {
     const tanques = getProdutosPermitidos(posto).map(p => {
         const r = info?.valores?.[p]?.regua;
@@ -61,7 +63,7 @@ export function cardPosto(posto, info, { comEncerrantesAbertos = false } = {}) {
         <header class="card-posto-topo">
             <div>
                 <h3>${esc(posto)}</h3>
-                <p class="quando">${icone('relogio')} ${esc(info?.dataFormatada || 'Nenhum envio ainda')}${info?.enviadoPorNome ? ' · ' + esc(info.enviadoPorNome) : ''}</p>
+                <p class="quando">${icone('relogio')} ${esc(info?.dataFormatada || 'Nenhum envio ainda')}${quem(info) ? ' · ' + esc(quem(info)) : ''}</p>
             </div>
             ${baixos ? `<span class="chip chip-vermelho">${icone('alerta')} ${baixos} baixo${baixos > 1 ? 's' : ''}</span>`
                      : `<span class="chip ${info?.tipoEnvio ? 'chip-verde' : 'chip-cinza'}">${esc(info?.tipoEnvio ? (info.tipoEnvio === 'Fechamento de Turno' ? 'Fechamento' : 'Atualização') : 'Pendente')}</span>`}

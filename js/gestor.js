@@ -47,12 +47,12 @@ export async function atualizarVendasHoje() {
 
     for (const posto of estado.postos) {
         const vendas = {};
-        let totalPosto = 0, ultimo = null, qtd = 0;
+        let totalPosto = 0, ultimo = null, qtd = 0, nome = '';
         try {
             const { validos } = analisarHistorico(await buscarHistorico(posto, inicio, fim), hoje);
             qtd = validos.length;
             validos.forEach(({ ts, reg }) => {
-                ultimo = ts;
+                ultimo = ts; nome = reg.responsavelFechamento || '';
                 Object.entries(reg.valores || {}).forEach(([p, v]) => {
                     if (!rotulosProdutos[p]) return;
                     const n = Number(v?.vendido) || 0;
@@ -63,7 +63,7 @@ export async function atualizarVendasHoje() {
                 });
             });
         } catch (e) { console.error('Erro ao buscar vendas', e); }
-        (qtd ? comVenda : semVenda).push({ posto, totalPosto, vendas, ultimo, qtd });
+        (qtd ? comVenda : semVenda).push({ posto, totalPosto, vendas, ultimo, qtd, nome });
     }
 
     $('gestor-total-resumo').textContent = totalRede ? `${num(totalRede)} L hoje` : 'Sem vendas ainda';
@@ -80,12 +80,12 @@ export async function atualizarVendasHoje() {
     }
 
     const hora = (ts) => new Date(Number(ts)).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-    porPosto.innerHTML = comVenda.sort((a, b) => b.totalPosto - a.totalPosto).map(({ posto, totalPosto, vendas, ultimo, qtd }, i) => {
+    porPosto.innerHTML = comVenda.sort((a, b) => b.totalPosto - a.totalPosto).map(({ posto, totalPosto, vendas, ultimo, qtd, nome }, i) => {
         const itens = ordenarProdutos(vendas);
         const maior = Math.max(1, ...itens.filter(([p]) => p !== 'arla_b').map(([, n]) => n));
         return `<article class="venda-posto entrar" style="--i:${i}">
             <header class="venda-posto-topo">
-                <div><strong>${esc(posto)}</strong><small>${qtd} fechamento${qtd > 1 ? 's' : ''} · último às ${hora(ultimo)}</small></div>
+                <div><strong>${esc(posto)}</strong><small>${qtd} fechamento${qtd > 1 ? 's' : ''} · último às ${hora(ultimo)}${nome ? ' · ' + esc(nome) : ''}</small></div>
                 <span class="venda-posto-total">${num(totalPosto)} L</span>
             </header>
             <div class="venda-produtos">${itens.map(([p, n]) => `

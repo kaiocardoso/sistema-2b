@@ -170,7 +170,7 @@ function desenharUltimoFechamento() {
     }
     const { ts, reg } = ultimoFechamento;
     caixa.innerHTML = `
-        <span class="ultimo-texto">${icone('check')} Último fechamento de hoje: <b>${horaDe(ts)}</b> · ${num(litrosDe(reg))} L${reg.evento === 'correcao' ? ' <span class="chip chip-azul">corrigido</span>' : ''}</span>
+        <span class="ultimo-texto">${icone('check')} Último fechamento de hoje: <b>${horaDe(ts)}</b> · ${num(litrosDe(reg))} L${reg.responsavelFechamento ? ' · ' + esc(reg.responsavelFechamento) : ''}${reg.evento === 'correcao' ? ' <span class="chip chip-azul">corrigido</span>' : ''}</span>
         <button type="button" class="botao botao-claro botao-mini" data-correcao="editar">${icone('lapis')} Editar último fechamento</button>`;
 }
 
@@ -186,6 +186,7 @@ function iniciarCorrecao() {
         $(`${p}-reg`).value = v.regua ?? '';
         calcularLinha(p);
     });
+    $('responsavel-fechamento').value = correcao.reg.responsavelFechamento || '';
     $('modo-correcao').innerHTML = `
         <div class="correcao-texto">${icone('lapis')}<div><b>Corrigindo o fechamento das ${horaDe(correcao.ts)}</b>
         <span>Os valores enviados foram carregados abaixo. Corrija o que estiver errado e salve: o fechamento anterior será substituído e não soma de novo nas vendas do dia.</span></div></div>
@@ -225,9 +226,11 @@ async function salvarPlanilha(e) {
     e.preventDefault();
     const posto = estado.postoAtivo;
     const corrigindo = correcao;
+    const responsavel = $('responsavel-fechamento').value.trim().replace(/\s+/g, ' ');
+    if (!responsavel) { aviso('Digite o nome de quem está fazendo o fechamento.', 'erro'); $('responsavel-fechamento').focus(); return; }
     const valores = {};
     let txt = corrigindo ? `✏️ *CORREÇÃO do fechamento das ${horaDe(corrigindo.ts)}*\n` : '';
-    txt += `📊 *FECHAMENTO - 2B*\n🏢 Posto: ${posto}\n🕒 Horário: ${new Date().toLocaleString('pt-BR')}\n\n`;
+    txt += `📊 *FECHAMENTO - 2B*\n🏢 Posto: ${posto}\n🕒 Horário: ${new Date().toLocaleString('pt-BR')}\n👤 Responsável: ${responsavel}\n\n`;
 
     produtos.forEach(p => {
         const s = (t) => $(`${p}-${t}`).value;
@@ -259,7 +262,7 @@ async function salvarPlanilha(e) {
     await comEspera(e.submitter, async () => {
         try {
             const extras = corrigindo ? { substitui: String(corrigindo.ts), ...(corrigindo.reg.dataFormatada ? { substituiData: corrigindo.reg.dataFormatada } : {}) } : {};
-            await salvarPosto({ dataFormatada: agoraFormatado(), tipoEnvio: "Fechamento de Turno", valores }, corrigindo ? 'correcao' : 'fechamento', extras);
+            await salvarPosto({ dataFormatada: agoraFormatado(), tipoEnvio: "Fechamento de Turno", valores, responsavelFechamento: responsavel }, corrigindo ? 'correcao' : 'fechamento', extras);
         } catch (err) {
             aviso('A planilha NÃO foi salva: ' + err.message + '\nNão apague os dados e tente de novo.', 'erro');
             return;

@@ -138,8 +138,9 @@ export async function criarEmprestimo({ data, origem, destino, produto, volume }
 export async function atualizarDevolucao(id, novoDevolvido, log) {
     const emp = estado.emprestimos[id];
     const volume = Number(emp.volume);
+    // mantém os campos do jeito que foram gravados (empréstimos antigos podem ter outro formato)
     await set(ref(db, `${CAMINHO.emprestimos}/${id}`), {
-        ...emp, volume,
+        ...emp,
         devolvido: novoDevolvido,
         status: novoDevolvido >= volume ? 'pago' : 'pendente',
         atualizadoPor: log,

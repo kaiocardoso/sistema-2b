@@ -118,7 +118,8 @@ export function ativarAcoesEmprestimo() {
                 aviso('Empréstimo excluído.');
             }
         } catch (err) {
-            aviso('Erro: ' + err.message, 'erro');
+            console.error(err);
+            aviso(/permission/i.test(err.message) ? 'Sem permissão para alterar este empréstimo. Avise o gestor do sistema.' : 'Erro: ' + err.message, 'erro');
         }
     });
 }

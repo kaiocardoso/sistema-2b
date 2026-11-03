@@ -51,6 +51,9 @@ function etiqueta(info, ts, analise) {
     return [info.tipoEnvio || 'Envio', 'chip-cinza'];
 }
 
+// Nos fechamentos, mostra o nome digitado pelo caixa; nos outros, o login que enviou
+const quemFez = (info) => ((info.evento === 'fechamento' || info.evento === 'correcao') && info.responsavelFechamento) ? info.responsavelFechamento : info.enviadoPorNome;
+
 function registro(info, ts, posto, analise, i = 0) {
     const [texto, cor, riscado] = etiqueta(info, ts, analise);
     const tanques = getProdutosPermitidos(posto).map(p => {
@@ -64,7 +67,7 @@ function registro(info, ts, posto, analise, i = 0) {
         }).join('')
         : '<p class="texto-suave">Sem encerrantes.</p>';
     return `<div class="registro ${riscado ? 'substituido' : ''} entrar" style="--i:${Math.min(i, 8)}">
-        <div class="registro-topo"><span>${new Date(Number(ts)).toLocaleTimeString('pt-BR')}${info.enviadoPorNome ? ' · ' + esc(info.enviadoPorNome) : ''}</span><span class="chip ${cor}">${esc(texto)}</span></div>
+        <div class="registro-topo"><span>${new Date(Number(ts)).toLocaleTimeString('pt-BR')}${quemFez(info) ? ' · ' + esc(quemFez(info)) : ''}</span><span class="chip ${cor}">${esc(texto)}</span></div>
         <div class="registro-corpo">
             <div><h4 class="titulo-tanques">Tanques</h4>${tanques}</div>
             <div><h4 class="titulo-encerrantes">Encerrantes</h4>${bicos}</div>
