@@ -1,0 +1,78 @@
+{
+  "rules": {
+    ".read": false,
+    ".write": false,
+    "perfis": {
+      "$chave": {
+        ".read": "auth != null && auth.token.email != null && $chave === auth.token.email.toLowerCase().replace('.', ',')",
+        ".write": false
+      }
+    },
+    "postos_2b_dados_oficial": {
+      "$posto": {
+        ".read": "auth != null && auth.token.email != null && root.child('perfis').child(auth.token.email.toLowerCase().replace('.', ',')).child('postos').child($posto).val() === true",
+        ".write": "auth != null && auth.token.email != null && root.child('perfis').child(auth.token.email.toLowerCase().replace('.', ',')).child('postos').child($posto).val() === true && (root.child('perfis').child(auth.token.email.toLowerCase().replace('.', ',')).child('papel').val() === 'caixa' || root.child('perfis').child(auth.token.email.toLowerCase().replace('.', ',')).child('papel').val() === 'gerente') && newData.exists()",
+        ".validate": "newData.child('enviadoPor').val() === auth.token.email"
+      }
+    },
+    "postos_2b_historico": {
+      "$posto": {
+        ".read": "auth != null && auth.token.email != null && root.child('perfis').child(auth.token.email.toLowerCase().replace('.', ',')).child('postos').child($posto).val() === true",
+        "$ts": {
+          ".write": "auth != null && auth.token.email != null && root.child('perfis').child(auth.token.email.toLowerCase().replace('.', ',')).child('postos').child($posto).val() === true && (root.child('perfis').child(auth.token.email.toLowerCase().replace('.', ',')).child('papel').val() === 'caixa' || root.child('perfis').child(auth.token.email.toLowerCase().replace('.', ',')).child('papel').val() === 'gerente') && !data.exists() && newData.exists()",
+          ".validate": "$ts.length === 13 && $ts.matches(/^[0-9]+$/) && newData.child('enviadoPor').val() === auth.token.email"
+        }
+      }
+    },
+    "postos_2b_emprestimos": {
+      ".indexOn": [
+        "origem",
+        "destino"
+      ],
+      ".read": "auth != null && auth.token.email != null && (root.child('perfis').child(auth.token.email.toLowerCase().replace('.', ',')).child('todos').val() === true || ((root.child('perfis').child(auth.token.email.toLowerCase().replace('.', ',')).child('papel').val() === 'gestor' || root.child('perfis').child(auth.token.email.toLowerCase().replace('.', ',')).child('papel').val() === 'gerente') && (query.orderByChild === 'origem' || query.orderByChild === 'destino') && query.equalTo != null && root.child('perfis').child(auth.token.email.toLowerCase().replace('.', ',')).child('postos').child(query.equalTo).val() === true))",
+      "$id": {
+        ".write": "auth != null && auth.token.email != null && ((root.child('perfis').child(auth.token.email.toLowerCase().replace('.', ',')).child('papel').val() === 'gestor' && ((newData.exists() && (root.child('perfis').child(auth.token.email.toLowerCase().replace('.', ',')).child('postos').child(newData.child('origem').val()).val() === true || root.child('perfis').child(auth.token.email.toLowerCase().replace('.', ',')).child('postos').child(newData.child('destino').val()).val() === true)) || (!newData.exists() && (root.child('perfis').child(auth.token.email.toLowerCase().replace('.', ',')).child('postos').child(data.child('origem').val()).val() === true || root.child('perfis').child(auth.token.email.toLowerCase().replace('.', ',')).child('postos').child(data.child('destino').val()).val() === true)))) || (root.child('perfis').child(auth.token.email.toLowerCase().replace('.', ',')).child('papel').val() === 'gerente' && newData.exists() && (root.child('perfis').child(auth.token.email.toLowerCase().replace('.', ',')).child('postos').child(newData.child('origem').val()).val() === true || root.child('perfis').child(auth.token.email.toLowerCase().replace('.', ',')).child('postos').child(newData.child('destino').val()).val() === true) && (!data.exists() || (data.child('origem').val() === newData.child('origem').val() && data.child('destino').val() === newData.child('destino').val() && data.child('volume').val() === newData.child('volume').val() && data.child('produto').val() === newData.child('produto').val() && data.child('data').val() === newData.child('data').val()))))",
+        ".validate": "newData.hasChildren(['data', 'origem', 'destino', 'produto', 'volume', 'devolvido', 'status', 'atualizadoPorEmail']) && newData.child('origem').val() !== newData.child('destino').val()",
+        "data": {
+          ".validate": "newData.isString() && newData.val().length === 10 && newData.val().matches(/^[0-9]+-[0-9]+-[0-9]+$/)"
+        },
+        "origem": {
+          ".validate": "newData.isString() && newData.val().length <= 60"
+        },
+        "destino": {
+          ".validate": "newData.isString() && newData.val().length <= 60"
+        },
+        "produto": {
+          ".validate": "newData.isString() && (newData.val() === 'DIESEL S-10' || newData.val() === 'DIESEL S-500' || newData.val() === 'GAS. COMUM' || newData.val() === 'GAS. ADITIVADA' || newData.val() === 'ETANOL')"
+        },
+        "volume": {
+          ".validate": "newData.isNumber() && newData.val() > 0"
+        },
+        "devolvido": {
+          ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= newData.parent().child('volume').val()"
+        },
+        "status": {
+          ".validate": "newData.val() === 'pendente' || (newData.val() === 'pago' && newData.parent().child('devolvido').val() >= newData.parent().child('volume').val())"
+        },
+        "timestamp": {
+          ".validate": "newData.isNumber()"
+        },
+        "criadoPor": {
+          ".validate": "newData.isString() && newData.val().length <= 120"
+        },
+        "atualizadoPor": {
+          ".validate": "newData.isString() && newData.val().length <= 200"
+        },
+        "criadoPorEmail": {
+          ".validate": "(data.exists() && newData.val() === data.val()) || (!data.exists() && newData.val() === auth.token.email)"
+        },
+        "atualizadoPorEmail": {
+          ".validate": "newData.val() === auth.token.email"
+        },
+        "$outro": {
+          ".validate": false
+        }
+      }
+    }
+  }
+}

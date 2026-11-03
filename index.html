@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#DA291C">
+    <title>Sistema Integrado - Postos 2B</title>
+    <link rel="icon" href="img/logo-2b.svg" type="image/svg+xml">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/estilo.css">
+    <script type="module" src="js/app.js"></script>
+</head>
+<body>
+
+    <!-- CABEÇALHO -->
+    <header class="topo">
+        <div class="topo-conteudo">
+            <div class="marca">
+                <img src="img/logo-2b.svg" alt="Logo 2B" class="marca-logo">
+                <div>
+                    <h1>POSTOS <span>2B</span></h1>
+                    <p>Estoque, apuração e encerrantes</p>
+                </div>
+            </div>
+            <div id="usuario" class="usuario oculto">
+                <span id="usuario-nome" class="usuario-nome"></span>
+                <button type="button" class="botao-sair" data-acao="sair">Sair</button>
+            </div>
+        </div>
+    </header>
+
+    <main class="conteudo">
+
+        <!-- ============ TELA DE LOGIN ============ -->
+        <section id="tela-login" class="tela tela-login">
+            <div class="cartao cartao-login">
+                <h2>Acesso restrito</h2>
+                <p class="texto-suave">Escolha seu perfil e digite a senha</p>
+
+                <div class="abas" role="tablist">
+                    <button type="button" class="aba ativa" role="tab" data-perfil="caixa">Caixa / Pista</button>
+                    <button type="button" class="aba" role="tab" data-perfil="gerente">Gerente</button>
+                    <button type="button" class="aba" role="tab" data-perfil="gestor">Gestor</button>
+                </div>
+
+                <form id="form-login" class="pilha" autocomplete="off">
+                    <label class="rotulo" for="login-quem" id="login-quem-rotulo">Posto</label>
+                    <select id="login-quem" class="campo"></select>
+                    <label class="rotulo" for="login-senha">Senha</label>
+                    <input type="password" id="login-senha" class="campo" placeholder="Digite a senha" autocomplete="current-password">
+                    <button type="submit" id="login-botao" class="botao botao-vermelho botao-grande">Entrar</button>
+                </form>
+            </div>
+        </section>
+
+        <!-- ============ TELA DO CAIXA ============ -->
+        <section id="tela-caixa" class="tela oculto">
+            <div class="cabecalho-tela">
+                <div>
+                    <p class="sobretitulo">Área do caixa</p>
+                    <h2 id="caixa-titulo">POSTO</h2>
+                </div>
+            </div>
+
+            <div class="cartao cartao-escuro">
+                <div class="cartao-topo">
+                    <h3>Referência do turno anterior</h3>
+                    <span id="caixa-ref-data" class="etiqueta etiqueta-escura">Sem registros</span>
+                </div>
+                <p class="texto-suave-claro">Último estoque e encerrantes salvos, para consulta.</p>
+                <div id="caixa-referencia" class="grade-2"></div>
+            </div>
+
+            <form id="form-encerrantes" class="cartao">
+                <div class="cartao-topo">
+                    <div>
+                        <h3><span class="numero-passo">1</span> Leitura de encerrantes</h3>
+                        <p class="texto-suave">Leitura atual de cada bico.</p>
+                    </div>
+                </div>
+                <div id="campos-encerrantes" class="grade-campos"></div>
+                <button type="submit" class="botao botao-azul botao-grande">Salvar encerrantes</button>
+            </form>
+
+            <form id="form-planilha" class="cartao">
+                <div class="cartao-topo">
+                    <div>
+                        <h3><span class="numero-passo">2</span> Fechamento de turno</h3>
+                        <p class="texto-suave">Estoque final = inicial + descarga − vendido. Diferença = régua − estoque final.</p>
+                    </div>
+                </div>
+                <div class="planilha">
+                    <div class="planilha-cabecalho">
+                        <span>Produto</span><span>Est. inicial</span><span>Descarga</span><span>Vendido</span><span>Est. final</span><span>Régua</span><span>Diferença</span>
+                    </div>
+                    <div id="planilha-linhas"></div>
+                    <div class="planilha-total">
+                        <span>Total vendido</span>
+                        <strong><span id="total-vendido">0</span> L</strong>
+                    </div>
+                </div>
+                <button type="submit" class="botao botao-whatsapp botao-grande">Salvar e copiar para o WhatsApp</button>
+            </form>
+        </section>
+
+        <!-- ============ TELA DO GERENTE ============ -->
+        <section id="tela-gerente" class="tela oculto">
+            <div class="cabecalho-tela">
+                <div>
+                    <p class="sobretitulo">Gerência</p>
+                    <h2 id="gerente-titulo">POSTO</h2>
+                </div>
+                <button type="button" class="botao botao-claro" data-acao="historico-gerente">Meu histórico (LMC)</button>
+            </div>
+
+            <div class="grade-gerente">
+                <div id="gerente-card" class="coluna-card"></div>
+
+                <form id="form-rapido" class="cartao">
+                    <div class="cartao-topo">
+                        <div>
+                            <h3>Atualização rápida de estoque</h3>
+                            <p class="texto-suave">Para atualizar volumes fora do horário de fechamento.</p>
+                        </div>
+                    </div>
+                    <div id="campos-rapidos" class="grade-campos"></div>
+                    <button type="submit" class="botao botao-azul botao-grande">Salvar atualização</button>
+                </form>
+            </div>
+
+            <div class="cartao">
+                <div class="cartao-topo">
+                    <div>
+                        <h3>Empréstimos do posto</h3>
+                        <p class="texto-suave">Empréstimos e transferências que envolvem o seu posto.</p>
+                    </div>
+                </div>
+                <form id="form-emprestimo-gerente" class="form-emprestimo" data-form-emprestimo></form>
+                <h4 class="subtitulo"><span class="etiqueta etiqueta-amarela">Pendentes</span></h4>
+                <div id="gerente-pendentes" class="lista-emprestimos"></div>
+            </div>
+        </section>
+
+        <!-- ============ TELA DO GESTOR ============ -->
+        <section id="tela-gestor" class="tela oculto">
+            <div class="cabecalho-tela">
+                <div>
+                    <p class="sobretitulo">Painel do gestor</p>
+                    <h2 id="gestor-titulo"></h2>
+                </div>
+                <button type="button" class="botao botao-claro" data-acao="historico-gestor">Histórico</button>
+            </div>
+
+            <div class="cartao cartao-escuro">
+                <div class="cartao-topo">
+                    <div>
+                        <h3 class="titulo-amarelo">Vendas de hoje</h3>
+                        <p class="texto-suave-claro">Soma dos fechamentos de turno enviados hoje.</p>
+                    </div>
+                    <button type="button" class="botao botao-escuro" data-acao="atualizar-vendas">Atualizar</button>
+                </div>
+                <div id="vendas-geral" class="grade-vendas"></div>
+                <div id="vendas-postos" class="grade-vendas-postos"></div>
+            </div>
+
+            <h3 class="titulo-secao">Estoque atual</h3>
+            <div id="gestor-postos" class="grade-postos"></div>
+
+            <div class="cartao">
+                <div class="cartao-topo">
+                    <div>
+                        <h3>Empréstimos entre postos</h3>
+                        <p class="texto-suave">Remanejamentos de combustível entre as unidades, com devoluções parciais e totais.</p>
+                    </div>
+                </div>
+                <form id="form-emprestimo-gestor" class="form-emprestimo" data-form-emprestimo></form>
+                <h4 class="subtitulo"><span class="etiqueta etiqueta-amarela">Pendentes</span></h4>
+                <div id="gestor-pendentes" class="lista-emprestimos"></div>
+                <h4 class="subtitulo"><span class="etiqueta etiqueta-verde">Últimos 5 quitados</span></h4>
+                <div id="gestor-pagos" class="lista-emprestimos lista-suave"></div>
+            </div>
+        </section>
+    </main>
+
+    <!-- ============ JANELA DO HISTÓRICO ============ -->
+    <div id="janela-historico" class="janela-fundo oculto">
+        <div class="janela" role="dialog" aria-modal="true" aria-labelledby="historico-titulo">
+            <div class="janela-topo">
+                <div>
+                    <h2 id="historico-titulo">Histórico de lançamentos</h2>
+                    <p class="texto-suave">Consulta por dia, para LMC e auditoria</p>
+                </div>
+                <button type="button" class="botao-fechar" data-acao="fechar-historico" aria-label="Fechar">&times;</button>
+            </div>
+            <div class="grade-2 filtros">
+                <div>
+                    <label class="rotulo" for="historico-posto">Posto</label>
+                    <select id="historico-posto" class="campo"></select>
+                </div>
+                <div>
+                    <label class="rotulo" for="historico-data">Dia</label>
+                    <input type="date" id="historico-data" class="campo">
+                </div>
+            </div>
+            <div id="historico-lista" class="historico-lista"></div>
+        </div>
+    </div>
+
+    <div id="avisos" aria-live="polite"></div>
+</body>
+</html>
