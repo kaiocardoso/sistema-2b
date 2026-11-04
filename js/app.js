@@ -1,6 +1,6 @@
 // Ponto de partida: login e escolha da tela de cada perfil
 import { auth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "./firebase.js";
-import { DOMINIO_LOGIN, gestores, slugPostos } from "./config.js";
+import { DOMINIO_LOGIN, LOGIN_ADMIN, gestores, slugPostos } from "./config.js";
 import { estado, carregarPerfil, iniciarEstado, pararEscutas, quandoErroLeitura, registrarLog } from "./dados.js";
 import { abrirCaixa } from "./caixa.js";
 import { abrirGerente } from "./gerente.js";
@@ -39,7 +39,21 @@ document.querySelectorAll('.aba').forEach(aba => aba.addEventListener('click', (
     $('login-senha').focus();
 }));
 
+// Modo administrador: só a senha (o login é fixo)
+let modoAdmin = false;
+function alternarModoAdmin() {
+    modoAdmin = !modoAdmin;
+    document.querySelector('.abas').classList.toggle('oculto', modoAdmin);
+    $('login-quem').parentElement.classList.toggle('oculto', modoAdmin);
+    document.querySelector('.login-caixa h1').textContent = modoAdmin ? 'Administrador' : 'Bem-vindo!';
+    $('login-senha').placeholder = modoAdmin ? 'Senha do administrador' : { caixa: 'Senha do caixa / posto', gerente: 'Senha do gerente', gestor: 'Senha do gestor' }[perfilEscolhido];
+    document.querySelector('[data-acao="modo-admin"]').textContent = modoAdmin ? 'Voltar ao login normal' : 'Acesso do administrador';
+    $('login-senha').value = '';
+    $('login-senha').focus();
+}
+
 function usuarioDoLogin() {
+    if (modoAdmin) return LOGIN_ADMIN;
     const quem = $('login-quem').value;
     if (perfilEscolhido === 'gestor') return gestores[quem];
     return `${perfilEscolhido}.${slugPostos[quem]}`;
@@ -98,13 +112,13 @@ function entrar(perfil) {
     if (entrouAgora) { entrouAgora = false; registrarLog('login', 'Entrou no sistema'); }
     $('tela-login').classList.add('oculto');
     $('usuario').classList.remove('oculto');
-    const nome = { gestor: nomeBonito(perfil.nome), gerente: `Gerente ${estado.postoAtivo}`, caixa: `Caixa ${estado.postoAtivo}` }[perfil.papel] || perfil.nome;
+    const nome = { admin: 'Administrador', gestor: nomeBonito(perfil.nome), gerente: `Gerente ${estado.postoAtivo}`, caixa: `Caixa ${estado.postoAtivo}` }[perfil.papel] || perfil.nome;
     $('usuario-nome').textContent = nome;
     $('usuario-avatar').textContent = (perfil.papel === 'gestor' ? perfil.nome : perfil.papel).charAt(0).toUpperCase();
     document.querySelectorAll('[data-hoje]').forEach(el => el.textContent = dataPorExtenso());
     document.querySelectorAll('[data-ola]').forEach(el => el.textContent = saudacao());
 
-    if (perfil.papel === 'gestor') abrirGestor();
+    if (perfil.papel === 'gestor' || perfil.papel === 'admin') abrirGestor();
     else if (perfil.papel === 'gerente') abrirGerente();
     else if (perfil.papel === 'caixa') abrirCaixa();
     else { aviso('Perfil inválido. Fale com o gestor do sistema.', 'erro'); sair(); }
@@ -122,6 +136,7 @@ document.addEventListener('click', (e) => {
     if (!alvo) return;
     const acao = alvo.dataset.acao;
     if (acao === 'sair') sair();
+    if (acao === 'modo-admin') alternarModoAdmin();
     if (acao === 'instalar') instalar();
     if (acao === 'historico-gerente') abrirHistorico(true);
     if (acao === 'historico-gestor') abrirHistorico(false);

@@ -9,7 +9,9 @@ import { iniciarLog } from "./log.js";
 
 export function abrirGestor() {
     $('tela-gestor').classList.remove('oculto');
-    $('gestor-titulo').textContent = nomeBonito(estado.perfil.nome);
+    const admin = estado.perfil.papel === 'admin';
+    $('gestor-titulo').textContent = admin ? 'Administrador' : nomeBonito(estado.perfil.nome);
+    $('chip-admin').classList.toggle('oculto', !admin);
     montarFormEmprestimo('form-emprestimo-gestor');
 
     // Um espaço fixo por posto: quando um posto muda, só o card dele é redesenhado
@@ -30,8 +32,8 @@ export function abrirGestor() {
     escutarDados();
     escutarEmprestimos();
     atualizarVendasHoje();
-    // registro de atividades: só para quem vê todos os postos
-    if (estado.perfil.todos === true) { $('secao-log').classList.remove('oculto'); iniciarLog(); }
+    // registro de atividades: só para o administrador
+    if (admin) { $('secao-log').classList.remove('oculto'); iniciarLog(); }
 }
 
 const nomeBonito = (n) => String(n).toLowerCase().replace(/(^|\s)\S/g, l => l.toUpperCase());

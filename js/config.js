@@ -19,6 +19,10 @@ export const firebaseConfig = {
 // Nenhuma senha fica no código: quem confere é o Firebase.
 export const DOMINIO_LOGIN = "rede2b.app";
 
+// Administrador (modo desenvolvedor): acesso total + registro de atividades.
+// O e-mail precisa bater com o das regras do banco (firebase/database.rules.json).
+export const LOGIN_ADMIN = "admin";
+
 export const gestores = { "ZICO": "zico", "GILMACIO": "gilmacio", "SABINO": "sabino", "MARCOS HENRIQUE": "marcos.henrique" };
 
 export const slugPostos = {

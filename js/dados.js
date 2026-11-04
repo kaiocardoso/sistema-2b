@@ -1,6 +1,6 @@
 // Estado da sessão + leitura e gravação no banco
 import { db, auth, ref, set, get, push, serverTimestamp, onValue, query, orderByChild, orderByKey, equalTo, startAt, endAt, CAMINHO } from "./firebase.js";
-import { configPostos } from "./config.js";
+import { configPostos, DOMINIO_LOGIN, LOGIN_ADMIN } from "./config.js";
 
 export const estado = {
     perfil: null,            // { papel, nome, postos, todos }
@@ -25,6 +25,9 @@ function erroLeitura(e) {
 export const chavePerfil = (email) => email.toLowerCase().replace(/\./g, ',');
 
 export async function carregarPerfil(email) {
+    if (email.toLowerCase() === `${LOGIN_ADMIN}@${DOMINIO_LOGIN}`) {
+        return { papel: 'admin', nome: 'ADMINISTRADOR', todos: true, postos: Object.fromEntries(Object.keys(configPostos).map(p => [p, true])) };
+    }
     const snap = await get(ref(db, `${CAMINHO.perfis}/${chavePerfil(email)}`));
     return snap.exists() ? snap.val() : null;
 }
@@ -32,7 +35,7 @@ export async function carregarPerfil(email) {
 export function iniciarEstado(perfil) {
     estado.perfil = perfil;
     estado.postos = Object.keys(perfil.postos || {}).filter(p => perfil.postos[p] === true && configPostos[p]);
-    estado.postoAtivo = perfil.papel === 'gestor' ? "" : estado.postos[0];
+    estado.postoAtivo = (perfil.papel === 'gestor' || perfil.papel === 'admin') ? "" : estado.postos[0];
 }
 
 export function pararEscutas() {
@@ -121,6 +124,7 @@ export function analisarHistorico(hist, iso) {
 }
 
 export function responsavel() {
+    if (estado.perfil.papel === 'admin') return 'Administrador';
     return estado.perfil.papel === 'gestor' ? `Gestor: ${estado.perfil.nome}` : `Gerente: ${estado.postoAtivo}`;
 }
 
