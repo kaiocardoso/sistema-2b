@@ -27,7 +27,7 @@ async function carregar() {
     try {
         const [inicio, fim] = limitesDoDia(dia);
         const dados = await buscarHistorico(posto, inicio, fim);
-        const analise = analisarHistorico(dados, dia);
+        const analise = analisarHistorico(dados);
         const chaves = Object.keys(dados).filter(ts => /^[0-9]+$/.test(ts)).sort((a, b) => b - a);
         lista.innerHTML = chaves.length
             ? chaves.map((ts, i) => registro(dados[ts], ts, posto, analise, i)).join('')
@@ -41,13 +41,15 @@ async function carregar() {
 // Etiqueta de cada registro: o que ele foi e se conta nas vendas
 function etiqueta(info, ts, analise) {
     if (analise.substituidos.has(ts)) return ['Substituído por correção', 'chip-cinza', true];
+    const v = analise.validos.find(x => x.ts === ts);
+    const dia = v ? ` · vendas de ${v.dia.split('-').reverse().join('/').slice(0, 5)}` : '';
     switch (info.evento) {
-        case 'fechamento': return ['Fechamento de turno', 'chip-verde'];
-        case 'correcao': return [`Correção do fechamento das ${hora(info.substitui)}`, 'chip-azul'];
+        case 'fechamento': return ['Fechamento de turno' + dia, 'chip-verde'];
+        case 'correcao': return [`Correção do fechamento das ${hora(info.substitui)}` + dia, 'chip-azul'];
         case 'encerrantes': return ['Encerrantes', 'chip-amarelo'];
         case 'atualizacao': return ['Atualização do gerente', 'chip-amarelo'];
     }
-    if (analise.idsValidos.has(ts)) return ['Fechamento de turno', 'chip-verde'];
+    if (analise.idsValidos.has(ts)) return ['Fechamento de turno' + dia, 'chip-verde'];
     return [info.tipoEnvio || 'Envio', 'chip-cinza'];
 }
 

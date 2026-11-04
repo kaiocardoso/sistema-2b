@@ -63,3 +63,7 @@ export function getProdutosPermitidos(posto) {
 }
 
 export const unidade = (p) => p === 'arla_b' ? 'un' : 'L';
+
+// Fechamentos enviados da meia-noite até esta hora contam, por padrão, para o dia anterior
+// (o turno que termina às 23:59 muitas vezes é registrado depois da meia-noite).
+export const HORA_VIRADA_DO_DIA = 4;

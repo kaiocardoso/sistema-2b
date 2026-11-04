@@ -1,7 +1,7 @@
 // Tela do caixa / pista: encerrantes e fechamento de turno
-import { bicosPostos, rotulosProdutos, getProdutosPermitidos, unidade } from "./config.js";
+import { bicosPostos, rotulosProdutos, getProdutosPermitidos, unidade, HORA_VIRADA_DO_DIA } from "./config.js";
 import { estado, salvarPosto, escutarDados, buscarHistorico, analisarHistorico, registrarLog } from "./dados.js";
-import { $, esc, num, temValor, agoraFormatado, aviso, comEspera, hojeISO, limitesDoDia } from "./util.js";
+import { $, esc, num, temValor, agoraFormatado, aviso, comEspera, hojeISO, somarDias, dataBR } from "./util.js";
 import { icone } from "./icones.js";
 import { abrirSecao } from "./secoes.js";
 
@@ -57,12 +57,36 @@ function montarFormularios() {
         </div>`).join('');
     $('total-vendido').textContent = '0';
     $('botao-fechamento').innerHTML = TEXTO_BOTAO;
+    $('dia-vendas').onchange = avisarDia;
+    prepararDiaVendas();
 
     $('planilha-linhas').oninput = (e) => { if (e.target.dataset.produto) calcularLinha(e.target.dataset.produto); };
     $('form-encerrantes').onsubmit = salvarEncerrantes;
     $('form-planilha').onsubmit = salvarPlanilha;
     $('ultimo-fechamento').onclick = (e) => { if (e.target.closest('[data-correcao="editar"]')) iniciarCorrecao(); };
     $('modo-correcao').onclick = (e) => { if (e.target.closest('[data-correcao="cancelar"]')) cancelarCorrecao(); };
+}
+
+// ---------- Dia das vendas ----------
+// Da meia-noite até HORA_VIRADA_DO_DIA, o padrão é o dia anterior (turno que terminou às 23:59)
+function diaPadrao() {
+    const agora = new Date();
+    return agora.getHours() < HORA_VIRADA_DO_DIA ? somarDias(hojeISO(), -1) : hojeISO();
+}
+
+function prepararDiaVendas(dia = diaPadrao()) {
+    const campo = $('dia-vendas');
+    campo.max = hojeISO();
+    campo.min = somarDias(hojeISO(), -7);
+    campo.value = dia;
+    avisarDia();
+}
+
+function avisarDia() {
+    const dia = $('dia-vendas').value, hoje = hojeISO();
+    const el = $('dia-vendas-aviso');
+    if (dia && dia !== hoje) el.textContent = `Atenção: estas vendas vão contar para ${dataBR(dia)}, não para hoje. ${dia === somarDias(hoje, -1) && new Date().getHours() < HORA_VIRADA_DO_DIA ? 'Como passou da meia-noite, o sistema sugeriu ontem. Mude se o turno for de hoje.' : ''}`;
+    else el.textContent = '';
 }
 
 function calcularLinha(p) {
@@ -95,6 +119,7 @@ function atualizarTotal() {
 
 function limparPlanilha() {
     $('form-planilha').reset();
+    prepararDiaVendas();
     produtos.forEach(p => {
         $(`${p}-fin`).textContent = '0';
         const d = $(`${p}-dif`); d.textContent = '0'; d.className = 'resultado'; d.dataset.valor = 0;
@@ -148,9 +173,8 @@ const litrosDe = (reg) => Object.entries(reg?.valores || {}).reduce((s, [p, v]) 
 async function carregarUltimoFechamento() {
     const caixa = $('ultimo-fechamento');
     try {
-        const hoje = hojeISO();
-        const [inicio, fim] = limitesDoDia(hoje);
-        const { validos } = analisarHistorico(await buscarHistorico(estado.postoAtivo, inicio, fim), hoje);
+        const fim = Date.now(), inicio = fim - 30 * 3600 * 1000;   // últimas 30 horas
+        const { validos } = analisarHistorico(await buscarHistorico(estado.postoAtivo, inicio, fim));
         ultimoFechamento = validos.at(-1) || null;
     } catch (e) {
         console.error(e);
@@ -165,12 +189,12 @@ function desenharUltimoFechamento() {
     if (correcao) { caixa.classList.add('oculto'); return; }
     caixa.classList.remove('oculto');
     if (!ultimoFechamento) {
-        caixa.innerHTML = `<span class="ultimo-texto">${icone('relogio')} Nenhum fechamento enviado hoje ainda.</span>`;
+        caixa.innerHTML = `<span class="ultimo-texto">${icone('relogio')} Nenhum fechamento enviado nas últimas horas.</span>`;
         return;
     }
-    const { ts, reg } = ultimoFechamento;
+    const { ts, reg, dia } = ultimoFechamento;
     caixa.innerHTML = `
-        <span class="ultimo-texto">${icone('check')} Último fechamento de hoje: <b>${horaDe(ts)}</b> · ${num(litrosDe(reg))} L${reg.responsavelFechamento ? ' · ' + esc(reg.responsavelFechamento) : ''}${reg.evento === 'correcao' ? ' <span class="chip chip-azul">corrigido</span>' : ''}</span>
+        <span class="ultimo-texto">${icone('check')} Último fechamento: <b>${new Date(Number(ts)).toLocaleDateString('pt-BR').slice(0, 5)} às ${horaDe(ts)}</b> · vendas de ${dataBR(dia).slice(0, 5)} · ${num(litrosDe(reg))} L${reg.responsavelFechamento ? ' · ' + esc(reg.responsavelFechamento) : ''}${reg.evento === 'correcao' ? ' <span class="chip chip-azul">corrigido</span>' : ''}</span>
         <button type="button" class="botao botao-claro botao-mini" data-correcao="editar">${icone('lapis')} Editar último fechamento</button>`;
 }
 
@@ -187,6 +211,7 @@ function iniciarCorrecao() {
         calcularLinha(p);
     });
     $('responsavel-fechamento').value = correcao.reg.responsavelFechamento || '';
+    prepararDiaVendas(correcao.dia);
     $('modo-correcao').innerHTML = `
         <div class="correcao-texto">${icone('lapis')}<div><b>Corrigindo o fechamento das ${horaDe(correcao.ts)}</b>
         <span>Os valores enviados foram carregados abaixo. Corrija o que estiver errado e salve: o fechamento anterior será substituído e não soma de novo nas vendas do dia.</span></div></div>
@@ -229,9 +254,11 @@ async function salvarPlanilha(e) {
     const corrigindo = correcao;
     const responsavel = $('responsavel-fechamento').value.trim().replace(/\s+/g, ' ');
     if (!responsavel) { aviso('Digite o nome de quem está fazendo o fechamento.', 'erro'); $('responsavel-fechamento').focus(); return; }
+    const diaVendas = $('dia-vendas').value;
+    if (!/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(diaVendas) || diaVendas > hojeISO()) { aviso('Confira o dia das vendas.', 'erro'); $('dia-vendas').focus(); return; }
     const valores = {};
     let txt = corrigindo ? `✏️ *CORREÇÃO do fechamento das ${horaDe(corrigindo.ts)}*\n` : '';
-    txt += `📊 *FECHAMENTO - 2B*\n🏢 Posto: ${posto}\n🕒 Horário: ${new Date().toLocaleString('pt-BR')}\n👤 Responsável: ${responsavel}\n\n`;
+    txt += `📊 *FECHAMENTO - 2B*\n🏢 Posto: ${posto}\n🕒 Horário: ${new Date().toLocaleString('pt-BR')}\n📅 Vendas do dia: ${dataBR(diaVendas)}\n👤 Responsável: ${responsavel}\n\n`;
 
     produtos.forEach(p => {
         const s = (t) => $(`${p}-${t}`).value;
@@ -263,9 +290,9 @@ async function salvarPlanilha(e) {
     await comEspera(e.submitter, async () => {
         try {
             const extras = corrigindo ? { substitui: String(corrigindo.ts), ...(corrigindo.reg.dataFormatada ? { substituiData: corrigindo.reg.dataFormatada } : {}) } : {};
-            await salvarPosto({ dataFormatada: agoraFormatado(), tipoEnvio: "Fechamento de Turno", valores, responsavelFechamento: responsavel }, corrigindo ? 'correcao' : 'fechamento', extras);
+            await salvarPosto({ dataFormatada: agoraFormatado(), tipoEnvio: "Fechamento de Turno", valores, responsavelFechamento: responsavel, diaVendas }, corrigindo ? 'correcao' : 'fechamento', extras);
             if (corrigindo) registrarLog('correcao', `Corrigiu o fechamento das ${horaDe(corrigindo.ts)}: era ${num(litrosDe(corrigindo.reg))} L, ficou ${num(litros)} L. Responsável: ${responsavel}`);
-            else registrarLog('fechamento', `Fechamento de turno: ${num(litros)} L vendidos${balde ? ` + ${num(balde)} un de ARLA balde` : ''}. Responsável: ${responsavel}`);
+            else registrarLog('fechamento', `Fechamento de turno: ${num(litros)} L vendidos${balde ? ` + ${num(balde)} un de ARLA balde` : ''} (vendas de ${dataBR(diaVendas)}). Responsável: ${responsavel}`);
         } catch (err) {
             aviso('A planilha NÃO foi salva: ' + err.message + '\nNão apague os dados e tente de novo.', 'erro');
             return;

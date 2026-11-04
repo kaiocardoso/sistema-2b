@@ -1,9 +1,10 @@
 // Painel do gestor
 import { rotulosProdutos, slugPostos, unidade } from "./config.js";
-import { estado, escutarDados, escutarEmprestimos, buscarHistorico, analisarHistorico } from "./dados.js";
+import { estado, escutarDados, escutarEmprestimos } from "./dados.js";
 import { cardPosto, tanquesBaixos } from "./cards.js";
 import { montarFormEmprestimo, desenharEmprestimosGestor } from "./emprestimos.js";
-import { $, esc, num, hojeISO, limitesDoDia, contarAte } from "./util.js";
+import { $, esc, num, hojeISO, somarDias, dataBR, diaDaSemana, contarAte } from "./util.js";
+import { vendasDoPeriodo } from "./vendas.js";
 import { icone } from "./icones.js";
 import { iniciarLog } from "./log.js";
 
@@ -31,6 +32,7 @@ export function abrirGestor() {
     desenharEmprestimosGestor();
     escutarDados();
     escutarEmprestimos();
+    iniciarVendas();
     atualizarVendasHoje();
     // registro de atividades: só para o administrador
     if (admin) { $('secao-log').classList.remove('oculto'); iniciarLog(); }
@@ -38,60 +40,60 @@ export function abrirGestor() {
 
 const nomeBonito = (n) => String(n).toLowerCase().replace(/(^|\s)\S/g, l => l.toUpperCase());
 
-// Soma os fechamentos de turno enviados hoje (cada fechamento conta uma vez só)
+// ---------- Vendas do dia escolhido + últimos dias ----------
+const hora = (ts) => new Date(Number(ts)).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+const diaCurto = (iso) => dataBR(iso).slice(0, 5);
+
+export function iniciarVendas() {
+    const campo = $('vendas-dia');
+    campo.max = hojeISO(); campo.value = hojeISO();
+    campo.onchange = () => desenharDia(campo.value || hojeISO());
+    $('historico-vendas-dias').onchange = carregarHistoricoVendas;
+    $('historico-vendas').onclick = (e) => {
+        const alvo = e.target.closest('[data-dia]');
+        if (!alvo) return;
+        campo.value = alvo.dataset.dia;
+        desenharDia(alvo.dataset.dia);
+        $('vendas-dia').scrollIntoView({ behavior: 'smooth', block: 'center' });
+    };
+}
+
+// Botão "Atualizar": recarrega o dia escolhido e os últimos dias
 export async function atualizarVendasHoje() {
+    await Promise.all([desenharDia($('vendas-dia').value || hojeISO()), carregarHistoricoVendas()]);
+}
+
+async function desenharDia(iso) {
     const geral = $('vendas-geral'), porPosto = $('vendas-postos');
     geral.innerHTML = '<div class="esqueleto esqueleto-grande"></div><div class="esqueleto"></div>';
     porPosto.innerHTML = '<div class="esqueleto"></div><div class="esqueleto"></div>';
 
-    const hoje = hojeISO();
-    const [inicio, fim] = limitesDoDia(hoje);
-    const totais = {};
-    let totalRede = 0;
-    const comVenda = [], semVenda = [];
+    const dia = (await vendasDoPeriodo(iso, iso))[iso] || { total: 0, qtd: 0, postos: {}, produtos: {} };
+    const ehHoje = iso === hojeISO();
+    const nomeDia = ehHoje ? 'hoje' : `${diaDaSemana(iso)} ${dataBR(iso)}`;
+    $('gestor-total-resumo').textContent = dia.total ? `${num(dia.total)} L ${ehHoje ? 'hoje' : 'em ' + diaCurto(iso)}` : (ehHoje ? 'Sem vendas ainda' : 'Sem vendas');
 
-    for (const posto of estado.postos) {
-        const vendas = {};
-        let totalPosto = 0, ultimo = null, qtd = 0, nome = '';
-        try {
-            const { validos } = analisarHistorico(await buscarHistorico(posto, inicio, fim), hoje);
-            qtd = validos.length;
-            validos.forEach(({ ts, reg }) => {
-                ultimo = ts; nome = reg.responsavelFechamento || '';
-                Object.entries(reg.valores || {}).forEach(([p, v]) => {
-                    if (!rotulosProdutos[p]) return;
-                    const n = Number(v?.vendido) || 0;
-                    if (n <= 0) return;
-                    vendas[p] = (vendas[p] || 0) + n;
-                    totais[p] = (totais[p] || 0) + n;
-                    if (p !== 'arla_b') { totalPosto += n; totalRede += n; }
-                });
-            });
-        } catch (e) { console.error('Erro ao buscar vendas', e); }
-        (qtd ? comVenda : semVenda).push({ posto, totalPosto, vendas, ultimo, qtd, nome });
-    }
-
-    $('gestor-total-resumo').textContent = totalRede ? `${num(totalRede)} L hoje` : 'Sem vendas ainda';
+    const comVenda = estado.postos.filter(p => dia.postos[p]).map(p => ({ posto: p, ...dia.postos[p] }));
+    const semVenda = estado.postos.filter(p => !dia.postos[p]);
 
     if (!comVenda.length) {
-        geral.innerHTML = '<div class="vazio-lista">As vendas do dia aparecem aqui assim que as pistas enviarem os fechamentos de turno.</div>';
+        geral.innerHTML = `<div class="vazio-lista">${ehHoje ? 'As vendas do dia aparecem aqui assim que as pistas enviarem os fechamentos de turno.' : `Nenhum fechamento com vendas de ${dataBR(iso)}.`}</div>`;
     } else {
         geral.innerHTML = `
-            <div class="kpi-total"><span>Total da rede hoje</span><strong><span id="kpi-total-valor">0</span> L</strong>
-                <small>${comVenda.reduce((s, x) => s + x.qtd, 0)} fechamento(s) de ${comVenda.length} posto(s)</small></div>
-            <div class="kpi-produtos">${ordenarProdutos(totais).map(([p, n], i) =>
+            <div class="kpi-total"><span>Total da rede ${ehHoje ? 'hoje' : 'em ' + dataBR(iso)}</span><strong><span id="kpi-total-valor">0</span> L</strong>
+                <small>${dia.qtd} fechamento(s) de ${comVenda.length} posto(s)</small></div>
+            <div class="kpi-produtos">${ordenarProdutos(dia.produtos).map(([p, n], i) =>
                 `<div class="kpi-produto entrar" style="--i:${i}"><span>${rotulosProdutos[p]}</span><strong>${num(n)} ${unidade(p)}</strong></div>`).join('')}</div>`;
-        contarAte($('kpi-total-valor'), totalRede);
+        contarAte($('kpi-total-valor'), dia.total);
     }
 
-    const hora = (ts) => new Date(Number(ts)).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-    porPosto.innerHTML = comVenda.sort((a, b) => b.totalPosto - a.totalPosto).map(({ posto, totalPosto, vendas, ultimo, qtd, nome }, i) => {
+    porPosto.innerHTML = comVenda.sort((a, b) => b.total - a.total).map(({ posto, total, vendas, ultimo, qtd, nome }, i) => {
         const itens = ordenarProdutos(vendas);
         const maior = Math.max(1, ...itens.filter(([p]) => p !== 'arla_b').map(([, n]) => n));
         return `<article class="venda-posto entrar" style="--i:${i}">
             <header class="venda-posto-topo">
                 <div><strong>${esc(posto)}</strong><small>${qtd} fechamento${qtd > 1 ? 's' : ''} · último às ${hora(ultimo)}${nome ? ' · ' + esc(nome) : ''}</small></div>
-                <span class="venda-posto-total">${num(totalPosto)} L</span>
+                <span class="venda-posto-total">${num(total)} L</span>
             </header>
             <div class="venda-produtos">${itens.map(([p, n]) => `
                 <div class="venda-produto ${p.startsWith('arla') ? 'arla' : ''}">
@@ -102,9 +104,48 @@ export async function atualizarVendasHoje() {
         </article>`;
     }).join('') + (semVenda.length ? `
         <div class="sem-fechamento">
-            <span>${icone('relogio')} Sem fechamento hoje:</span>
-            ${semVenda.map(({ posto }) => `<span class="chip chip-cinza">${esc(posto)}</span>`).join('')}
+            <span>${icone('relogio')} Sem fechamento ${ehHoje ? 'hoje' : 'neste dia'}:</span>
+            ${semVenda.map(p => `<span class="chip chip-cinza">${esc(p)}</span>`).join('')}
         </div>` : '');
+    $('vendas-dia-nome').textContent = nomeDia;
+}
+
+async function carregarHistoricoVendas() {
+    const caixa = $('historico-vendas');
+    const n = Number($('historico-vendas-dias').value) || 7;
+    const fim = hojeISO(), inicio = somarDias(fim, -(n - 1));
+    caixa.innerHTML = '<div class="esqueleto esqueleto-grande"></div>';
+    const porDia = await vendasDoPeriodo(inicio, fim);
+    const dias = Array.from({ length: n }, (_, i) => somarDias(inicio, i));
+    const totais = dias.map(d => porDia[d]?.total || 0);
+    const soma = totais.reduce((a, b) => a + b, 0);
+    const comVenda = totais.filter(t => t > 0).length;
+    const maior = Math.max(1, ...totais);
+    const melhor = dias[totais.indexOf(Math.max(...totais))];
+
+    caixa.innerHTML = `
+        <div class="historico-resumo">
+            <div><span>Total em ${n} dias</span><strong>${num(soma)} L</strong></div>
+            <div><span>Média por dia</span><strong>${num(Math.round(soma / Math.max(1, comVenda)))} L</strong></div>
+            <div><span>Melhor dia</span><strong>${soma ? `${diaCurto(melhor)} · ${num(Math.max(...totais))} L` : '–'}</strong></div>
+        </div>
+        <div class="grafico-dias ${n > 15 ? 'grafico-largo' : ''}" role="img" aria-label="Vendas por dia">
+            ${dias.map((d, i) => `
+                <button type="button" class="grafico-coluna ${d === fim ? 'hoje' : ''}" data-dia="${d}" title="${diaDaSemana(d, false)} ${dataBR(d)}: ${num(totais[i])} L">
+                    <span class="grafico-valor">${totais[i] ? (totais[i] >= 1000 ? (totais[i] / 1000).toLocaleString('pt-BR', { maximumFractionDigits: 1 }) + ' mil' : num(totais[i])) : ''}</span>
+                    <span class="grafico-barra"><span style="--pct:${Math.round((totais[i] / maior) * 100)}%"></span></span>
+                    <span class="grafico-dia">${diaDaSemana(d)}<br>${diaCurto(d)}</span>
+                </button>`).join('')}
+        </div>
+        <div class="historico-dias">${dias.slice().reverse().map(d => {
+            const D = porDia[d];
+            return `<button type="button" class="historico-dia ${D ? '' : 'vazio'}" data-dia="${d}">
+                <span class="historico-dia-data"><b>${diaDaSemana(d)} ${dataBR(d)}</b>${d === fim ? ' <span class="chip chip-verde">hoje</span>' : ''}</span>
+                <span class="historico-dia-info">${D ? `${D.qtd} fechamento${D.qtd > 1 ? 's' : ''} · ${Object.keys(D.postos).length} posto${Object.keys(D.postos).length > 1 ? 's' : ''}` : 'sem fechamentos'}</span>
+                <span class="historico-dia-total">${D ? num(D.total) + ' L' : '–'}</span>
+            </button>`;
+        }).join('')}</div>
+        <p class="texto-suave historico-dica">Toque num dia para ver os detalhes por posto.</p>`;
 }
 
 // Combustíveis primeiro (do maior para o menor), ARLA no fim

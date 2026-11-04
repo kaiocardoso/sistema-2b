@@ -11,9 +11,16 @@ export function esc(v) {
 export const num = (v) => Number(v).toLocaleString('pt-BR');
 export const temValor = (v) => v !== "" && v !== undefined && v !== null;
 
-export function hojeISO() {
-    const h = new Date();
-    return `${h.getFullYear()}-${String(h.getMonth() + 1).padStart(2, '0')}-${String(h.getDate()).padStart(2, '0')}`;
+export const isoDe = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+export const hojeISO = () => isoDe(new Date());
+export function somarDias(iso, n) {
+    const [a, m, d] = iso.split('-').map(Number);
+    return isoDe(new Date(a, m - 1, d + n));
+}
+export function diaDaSemana(iso, curto = true) {
+    const [a, m, d] = iso.split('-').map(Number);
+    const t = new Date(a, m - 1, d).toLocaleDateString('pt-BR', { weekday: curto ? 'short' : 'long' }).replace('.', '');
+    return t.charAt(0).toUpperCase() + t.slice(1);
 }
 
 export const agoraFormatado = () =>

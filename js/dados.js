@@ -1,6 +1,6 @@
 // Estado da sessão + leitura e gravação no banco
 import { db, auth, ref, set, get, push, serverTimestamp, onValue, query, orderByChild, orderByKey, equalTo, startAt, endAt, CAMINHO } from "./firebase.js";
-import { configPostos, DOMINIO_LOGIN, LOGIN_ADMIN } from "./config.js";
+import { configPostos, DOMINIO_LOGIN, LOGIN_ADMIN, HORA_VIRADA_DO_DIA } from "./config.js";
 
 export const estado = {
     perfil: null,            // { papel, nome, postos, todos }
@@ -88,15 +88,28 @@ export async function salvarPosto(dadosNovos, evento, extrasHistorico = {}) {
     return ts;
 }
 
-// Quais registros do histórico de um dia são fechamentos de verdade (e contam nas vendas).
+// Dia a que as vendas de um fechamento pertencem.
+// - Fechamentos novos dizem o dia ("diaVendas"), escolhido pelo caixa.
+// - Os outros usam a hora do envio; enviados da meia-noite até HORA_VIRADA_DO_DIA
+//   contam para o dia anterior.
+export function diaDasVendas(ts, r) {
+    if (/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(r?.diaVendas || '')) return r.diaVendas;
+    let d = new Date(Number(ts));
+    // registros antigos copiavam o fechamento: a data/hora dele está em "dataFormatada"
+    const m = /^([0-9]{2})\/([0-9]{2})\/([0-9]{4}) às ([0-9]{2}):([0-9]{2})/.exec(r?.dataFormatada || '');
+    if (!r?.evento && m) d = new Date(+m[3], +m[2] - 1, +m[1], +m[4], +m[5]);
+    if (d.getHours() < HORA_VIRADA_DO_DIA) d = new Date(d.getFullYear(), d.getMonth(), d.getDate() - 1);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+// Quais registros do histórico são fechamentos de verdade (e contam nas vendas).
 // - Registros novos dizem o próprio "evento".
 // - Registros antigos (antes desta versão) copiavam o último fechamento a cada envio de
 //   encerrantes. Para não contar a cópia de novo, cada fechamento antigo conta uma vez só
-//   (pela data e hora do fechamento) e só no dia em que foi feito.
+//   (pela data e hora do fechamento).
 // - Um fechamento corrigido ("substituído") deixa de contar; vale a correção.
-export function analisarHistorico(hist, iso) {
-    const [a, m, d] = iso.split('-');
-    const diaBR = `${d}/${m}/${a}`;
+// Com "iso", devolve só os fechamentos cujas vendas são daquele dia.
+export function analisarHistorico(hist, iso = null) {
     const entradas = Object.entries(hist || {}).filter(([ts]) => /^[0-9]+$/.test(ts)).sort((x, y) => x[0] - y[0]);
     const substituidosTs = new Set(), substituidasDatas = new Set();
     entradas.forEach(([, r]) => {
@@ -110,15 +123,15 @@ export function analisarHistorico(hist, iso) {
         if (r.evento) {
             if (r.evento !== 'fechamento' && r.evento !== 'correcao') return;
             if (substituidosTs.has(ts)) { substituidos.add(ts); return; }
-            validos.push({ ts, reg: r });
-            return;
+        } else {
+            if (r.tipoEnvio !== 'Fechamento de Turno') return;
+            const quando = r.dataFormatada || ts;
+            if (vistos.has(quando)) return;
+            vistos.add(quando);
+            if (substituidosTs.has(ts) || substituidasDatas.has(quando)) { substituidos.add(ts); return; }
         }
-        if (r.tipoEnvio !== 'Fechamento de Turno') return;
-        const quando = r.dataFormatada || '';
-        if (!quando.startsWith(diaBR) || vistos.has(quando)) return;
-        vistos.add(quando);
-        if (substituidosTs.has(ts) || substituidasDatas.has(quando)) { substituidos.add(ts); return; }
-        validos.push({ ts, reg: r });
+        const dia = diaDasVendas(ts, r);
+        if (!iso || dia === iso) validos.push({ ts, reg: r, dia });
     });
     return { validos, substituidos, idsValidos: new Set(validos.map(v => v.ts)) };
 }

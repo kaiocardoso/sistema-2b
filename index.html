@@ -150,6 +150,11 @@
                                 <small id="total-balde" class="total-extra"></small>
                             </div>
                         </div>
+                        <div class="campo-responsavel campo-dia-vendas">
+                            <label class="rotulo" for="dia-vendas"><i data-icone="relogio"></i> Estas vendas são do dia</label>
+                            <input type="date" id="dia-vendas" class="campo" required>
+                            <small id="dia-vendas-aviso" class="dica dica-alerta"></small>
+                        </div>
                         <div class="campo-responsavel">
                             <label class="rotulo" for="responsavel-fechamento"><i data-icone="usuario"></i> Quem está fazendo este fechamento?</label>
                             <input type="text" id="responsavel-fechamento" class="campo" maxlength="60" placeholder="Digite seu nome" required autocomplete="off">
@@ -228,17 +233,32 @@
             <section class="secao tom-verde entrar" style="--i:1" data-secao="gestor-vendas">
                 <button type="button" class="secao-cabeca">
                     <span class="secao-icone icone-verde"><i data-icone="grafico"></i></span>
-                    <span class="secao-titulos"><strong>Vendas de hoje</strong><small>Soma dos fechamentos de turno enviados hoje</small></span>
+                    <span class="secao-titulos"><strong>Vendas</strong><small>Soma dos fechamentos de turno de cada dia</small></span>
                     <span id="gestor-total-resumo" class="chip chip-verde secao-resumo"></span>
                     <i data-icone="seta" class="secao-seta"></i>
                 </button>
                 <div class="secao-corpo"><div class="secao-interno">
-                    <div id="vendas-geral" class="vendas-geral"></div>
-                    <div class="linha-titulo">
-                        <h4 class="rotulo-lista">Por posto</h4>
-                        <button type="button" class="botao botao-claro botao-mini" data-acao="atualizar-vendas"><i data-icone="atualizar"></i> Atualizar</button>
+                    <div class="vendas-controles">
+                        <div><label class="rotulo" for="vendas-dia">Dia das vendas</label><input type="date" id="vendas-dia" class="campo"></div>
+                        <button type="button" class="botao botao-claro" data-acao="atualizar-vendas"><i data-icone="atualizar"></i> Atualizar</button>
                     </div>
+                    <div id="vendas-geral" class="vendas-geral"></div>
+                    <h4 class="rotulo-lista">Por posto · <span id="vendas-dia-nome">hoje</span></h4>
                     <div id="vendas-postos" class="vendas-postos"></div>
+                    <div class="sub-secao historico-vendas-bloco" data-secao="gestor-vendas-dias">
+                        <button type="button" class="sub-cabeca"><i data-icone="grafico"></i> Vendas dos últimos dias <i data-icone="seta" class="secao-seta"></i></button>
+                        <div class="secao-corpo"><div class="secao-interno">
+                            <div class="historico-controle">
+                                <label class="rotulo" for="historico-vendas-dias">Período</label>
+                                <select id="historico-vendas-dias" class="campo">
+                                    <option value="7">Últimos 7 dias</option>
+                                    <option value="15">Últimos 15 dias</option>
+                                    <option value="30">Últimos 30 dias</option>
+                                </select>
+                            </div>
+                            <div id="historico-vendas"></div>
+                        </div></div>
+                    </div>
                 </div></div>
             </section>
 
