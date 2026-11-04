@@ -1,7 +1,7 @@
 // Ponto de partida: login e escolha da tela de cada perfil
 import { auth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "./firebase.js";
 import { DOMINIO_LOGIN, gestores, slugPostos } from "./config.js";
-import { estado, carregarPerfil, iniciarEstado, pararEscutas, quandoErroLeitura } from "./dados.js";
+import { estado, carregarPerfil, iniciarEstado, pararEscutas, quandoErroLeitura, registrarLog } from "./dados.js";
 import { abrirCaixa } from "./caixa.js";
 import { abrirGerente } from "./gerente.js";
 import { abrirGestor, atualizarVendasHoje } from "./gestor.js";
@@ -10,6 +10,7 @@ import { ativarAcoesEmprestimo } from "./emprestimos.js";
 import { aplicarIcones } from "./icones.js";
 import { iniciarSecoes } from "./secoes.js";
 import { iniciarInstalacao, instalar } from "./instalar.js";
+import { carregarLog } from "./log.js";
 import { $, aviso, comEspera, saudacao, dataPorExtenso } from "./util.js";
 
 aplicarIcones();
@@ -18,6 +19,7 @@ iniciarInstalacao();
 
 // ---------- Tela de login ----------
 let perfilEscolhido = 'caixa';
+let entrouAgora = false;
 const nomeBonito = (n) => String(n).toLowerCase().replace(/(^|\s)\S/g, l => l.toUpperCase());
 
 function preencherOpcoesLogin() {
@@ -58,9 +60,11 @@ $('form-login').addEventListener('submit', async (e) => {
     if (!senha) return aviso('Digite a senha.', 'erro');
     await comEspera($('login-botao'), async () => {
         try {
+            entrouAgora = true;   // registra a entrada no log (só quando a pessoa digita a senha)
             await signInWithEmailAndPassword(auth, `${usuarioDoLogin()}@${DOMINIO_LOGIN}`, senha);
             $('login-senha').value = '';
         } catch (err) {
+            entrouAgora = false;
             console.error(err);
             aviso(mensagemErroLogin(err), 'erro');
             const caixa = document.querySelector('.login-caixa');
@@ -91,6 +95,7 @@ onAuthStateChanged(auth, async (user) => {
 
 function entrar(perfil) {
     iniciarEstado(perfil);
+    if (entrouAgora) { entrouAgora = false; registrarLog('login', 'Entrou no sistema'); }
     $('tela-login').classList.add('oculto');
     $('usuario').classList.remove('oculto');
     const nome = { gestor: nomeBonito(perfil.nome), gerente: `Gerente ${estado.postoAtivo}`, caixa: `Caixa ${estado.postoAtivo}` }[perfil.papel] || perfil.nome;
@@ -122,6 +127,7 @@ document.addEventListener('click', (e) => {
     if (acao === 'historico-gestor') abrirHistorico(false);
     if (acao === 'fechar-historico') fecharHistorico();
     if (acao === 'atualizar-vendas') comEspera(alvo, atualizarVendasHoje);
+    if (acao === 'atualizar-log') comEspera(alvo, carregarLog);
 });
 $('janela-historico').addEventListener('click', (e) => { if (e.target.id === 'janela-historico') fecharHistorico(); });
 document.addEventListener('keydown', (e) => { if (e.key === 'Escape') fecharHistorico(); });

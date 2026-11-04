@@ -1,6 +1,6 @@
 // Empréstimos de combustível entre postos (gestor e gerente)
 import { configPostos, produtosEmprestimo } from "./config.js";
-import { estado, criarEmprestimo, atualizarDevolucao, excluirEmprestimo, responsavel } from "./dados.js";
+import { estado, criarEmprestimo, atualizarDevolucao, excluirEmprestimo, responsavel, registrarLog } from "./dados.js";
 import { $, esc, num, dataBR, hojeISO, aviso, comEspera, pedirNumero, confirmar } from "./util.js";
 import { icone } from "./icones.js";
 
@@ -24,6 +24,7 @@ export function montarFormEmprestimo(idForm) {
         await comEspera(e.submitter, async () => {
             try {
                 await criarEmprestimo(dados);
+                registrarLog('emprestimo_criado', `Registrou empréstimo: ${dados.destino} recebeu ${num(dados.volume)} L de ${dados.produto} do ${dados.origem} (data ${dataBR(dados.data)})`);
                 aviso('Empréstimo registrado!');
                 form.volume.value = '';
             } catch (err) { aviso('Erro: ' + err.message, 'erro'); }
@@ -107,15 +108,19 @@ export function ativarAcoesEmprestimo() {
                 if (val === null || String(val).trim() === '') return;
                 const agora = Number(String(val).replace(',', '.'));
                 if (isNaN(agora) || agora <= 0) return aviso('Valor inválido.', 'erro');
-                await comEspera(botao, () => atualizarDevolucao(id, Math.min(devolvido + agora, volume), `Devol. parcial de ${num(agora)}L por ${responsavel()}`));
+                const novo = Math.min(devolvido + agora, volume);
+                await comEspera(botao, () => atualizarDevolucao(id, novo, `Devol. parcial de ${num(agora)}L por ${responsavel()}`));
+                registrarLog('emprestimo_devolucao', `Devolução parcial de ${num(agora)} L de ${emp.produto}: ${emp.destino} devolveu para ${emp.origem}. Faltavam ${num(volume - devolvido)} L, agora faltam ${num(volume - novo)} L`, { emprestimo: id });
                 aviso('Devolução registrada.');
             } else if (botao.dataset.empAcao === 'quitar') {
                 if (!await confirmar('Quitar empréstimo', `Confirmar que os ${num(volume)} L de ${emp.produto} foram totalmente devolvidos?`, 'Quitar')) return;
                 await comEspera(botao, () => atualizarDevolucao(id, volume, `Quitado por ${responsavel()}`));
+                registrarLog('emprestimo_quitado', `Quitou empréstimo: ${emp.destino} devolveu os ${num(volume)} L de ${emp.produto} para ${emp.origem} (empréstimo de ${dataBR(emp.data)})`, { emprestimo: id });
                 aviso('Empréstimo quitado.');
             } else if (botao.dataset.empAcao === 'excluir') {
                 if (!await confirmar('Excluir empréstimo', 'Use só para lançamentos feitos por engano. Essa ação não pode ser desfeita.', 'Excluir', true)) return;
                 await comEspera(botao, () => excluirEmprestimo(id));
+                registrarLog('emprestimo_excluido', `Excluiu empréstimo: ${emp.destino} devia ${num(volume - devolvido)} L de ${emp.produto} para ${emp.origem} (empréstimo de ${num(volume)} L em ${dataBR(emp.data)})`, { emprestimo: id, copia: emp });
                 aviso('Empréstimo excluído.');
             }
         } catch (err) {

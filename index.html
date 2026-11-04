@@ -276,6 +276,31 @@
                     </div>
                 </div></div>
             </section>
+
+            <section id="secao-log" class="secao tom-roxo entrar oculto" style="--i:4" data-secao="gestor-log" data-padrao="fechada">
+                <button type="button" class="secao-cabeca">
+                    <span class="secao-icone"><i data-icone="relogio"></i></span>
+                    <span class="secao-titulos"><strong>Registro de atividades</strong><small>Quem fez o quê e quando no sistema</small></span>
+                    <span id="log-qtd" class="chip chip-cinza secao-resumo"></span>
+                    <i data-icone="seta" class="secao-seta"></i>
+                </button>
+                <div class="secao-corpo"><div class="secao-interno">
+                    <div class="log-filtros">
+                        <div><label class="rotulo" for="log-data">Dia</label><input type="date" id="log-data" class="campo"></div>
+                        <div><label class="rotulo" for="log-tipo">Mostrar</label>
+                            <select id="log-tipo" class="campo">
+                                <option value="tudo">Tudo</option>
+                                <option value="emprestimos">Empréstimos</option>
+                                <option value="fechamentos">Fechamentos e correções</option>
+                                <option value="estoque">Encerrantes e estoque</option>
+                                <option value="acessos">Entradas no sistema</option>
+                            </select>
+                        </div>
+                        <button type="button" class="botao botao-claro" data-acao="atualizar-log"><i data-icone="atualizar"></i> Atualizar</button>
+                    </div>
+                    <div id="log-lista" class="log-lista"></div>
+                </div></div>
+            </section>
         </section>
     </main>
 

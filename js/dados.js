@@ -1,5 +1,5 @@
 // Estado da sessão + leitura e gravação no banco
-import { db, auth, ref, set, get, onValue, query, orderByChild, orderByKey, equalTo, startAt, endAt, CAMINHO } from "./firebase.js";
+import { db, auth, ref, set, get, push, serverTimestamp, onValue, query, orderByChild, orderByKey, equalTo, startAt, endAt, CAMINHO } from "./firebase.js";
 import { configPostos } from "./config.js";
 
 export const estado = {
@@ -146,6 +146,31 @@ export async function atualizarDevolucao(id, novoDevolvido, log) {
         atualizadoPor: log,
         atualizadoPorEmail: auth.currentUser.email
     });
+}
+
+// ---------- Registro de atividades (log) ----------
+// Grava quem fez, o quê e quando (hora do servidor). Se falhar, não atrapalha a ação principal.
+export async function registrarLog(acao, detalhe, extras = {}) {
+    try {
+        if (!auth.currentUser || !estado.perfil) return;
+        await set(push(ref(db, CAMINHO.log)), {
+            quando: serverTimestamp(),
+            email: auth.currentUser.email,
+            nome: String(estado.perfil.nome || '').slice(0, 80),
+            papel: estado.perfil.papel || '',
+            posto: estado.postoAtivo || '',
+            acao,
+            detalhe: String(detalhe || '').slice(0, 500),
+            ...extras
+        });
+    } catch (e) {
+        console.warn('Não foi possível gravar no registro de atividades', e);
+    }
+}
+
+export async function buscarLog(inicio, fim) {
+    const snap = await get(query(ref(db, CAMINHO.log), orderByChild('quando'), startAt(inicio), endAt(fim)));
+    return Object.entries(snap.val() || {}).map(([id, r]) => ({ id, ...r })).sort((a, b) => b.quando - a.quando);
 }
 
 export async function excluirEmprestimo(id) {

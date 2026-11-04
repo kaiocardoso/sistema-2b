@@ -5,6 +5,7 @@ import { cardPosto, tanquesBaixos } from "./cards.js";
 import { montarFormEmprestimo, desenharEmprestimosGestor } from "./emprestimos.js";
 import { $, esc, num, hojeISO, limitesDoDia, contarAte } from "./util.js";
 import { icone } from "./icones.js";
+import { iniciarLog } from "./log.js";
 
 export function abrirGestor() {
     $('tela-gestor').classList.remove('oculto');
@@ -29,6 +30,8 @@ export function abrirGestor() {
     escutarDados();
     escutarEmprestimos();
     atualizarVendasHoje();
+    // registro de atividades: só para quem vê todos os postos
+    if (estado.perfil.todos === true) { $('secao-log').classList.remove('oculto'); iniciarLog(); }
 }
 
 const nomeBonito = (n) => String(n).toLowerCase().replace(/(^|\s)\S/g, l => l.toUpperCase());

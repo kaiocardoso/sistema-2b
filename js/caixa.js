@@ -1,6 +1,6 @@
 // Tela do caixa / pista: encerrantes e fechamento de turno
 import { bicosPostos, rotulosProdutos, getProdutosPermitidos, unidade } from "./config.js";
-import { estado, salvarPosto, escutarDados, buscarHistorico, analisarHistorico } from "./dados.js";
+import { estado, salvarPosto, escutarDados, buscarHistorico, analisarHistorico, registrarLog } from "./dados.js";
 import { $, esc, num, temValor, agoraFormatado, aviso, comEspera, hojeISO, limitesDoDia } from "./util.js";
 import { icone } from "./icones.js";
 import { abrirSecao } from "./secoes.js";
@@ -214,6 +214,7 @@ async function salvarEncerrantes(e) {
     await comEspera(e.submitter, async () => {
         try {
             await salvarPosto({ dataEncerrantes: agoraFormatado(), encerrantes: enc }, 'encerrantes');
+            registrarLog('encerrantes', `Salvou as leituras dos encerrantes (${Object.values(enc).filter(v => v !== '').length} bicos preenchidos)`);
             aviso('Leituras dos encerrantes salvas!');
             $('form-encerrantes').reset();
         } catch (err) {
@@ -263,6 +264,8 @@ async function salvarPlanilha(e) {
         try {
             const extras = corrigindo ? { substitui: String(corrigindo.ts), ...(corrigindo.reg.dataFormatada ? { substituiData: corrigindo.reg.dataFormatada } : {}) } : {};
             await salvarPosto({ dataFormatada: agoraFormatado(), tipoEnvio: "Fechamento de Turno", valores, responsavelFechamento: responsavel }, corrigindo ? 'correcao' : 'fechamento', extras);
+            if (corrigindo) registrarLog('correcao', `Corrigiu o fechamento das ${horaDe(corrigindo.ts)}: era ${num(litrosDe(corrigindo.reg))} L, ficou ${num(litros)} L. Responsável: ${responsavel}`);
+            else registrarLog('fechamento', `Fechamento de turno: ${num(litros)} L vendidos${balde ? ` + ${num(balde)} un de ARLA balde` : ''}. Responsável: ${responsavel}`);
         } catch (err) {
             aviso('A planilha NÃO foi salva: ' + err.message + '\nNão apague os dados e tente de novo.', 'erro');
             return;

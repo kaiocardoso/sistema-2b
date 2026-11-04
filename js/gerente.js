@@ -1,6 +1,6 @@
 // Tela do gerente de posto
 import { configPostos, rotulosProdutos, getProdutosPermitidos } from "./config.js";
-import { estado, salvarPosto, escutarDados, escutarEmprestimos } from "./dados.js";
+import { estado, salvarPosto, escutarDados, escutarEmprestimos, registrarLog } from "./dados.js";
 import { cardPosto } from "./cards.js";
 import { montarFormEmprestimo, desenharEmprestimosGerente } from "./emprestimos.js";
 import { $, num, temValor, agoraFormatado, aviso, comEspera } from "./util.js";
@@ -26,6 +26,7 @@ export function abrirGerente() {
         await comEspera(e.submitter, async () => {
             try {
                 await salvarPosto({ dataFormatada: agoraFormatado(), tipoEnvio: `Atualização Gerente (${posto})`, valores }, 'atualizacao');
+                registrarLog('atualizacao_estoque', 'Atualização rápida de estoque: ' + (produtos.filter(p => valores[p].regua !== '').map(p => `${rotulosProdutos[p]} ${num(Number(valores[p].regua))}`).join(', ') || 'sem valores'));
                 aviso('Atualização de estoque salva!');
                 $('form-rapido').reset();
             } catch (err) { aviso('Não foi salvo: ' + err.message, 'erro'); }

@@ -24,6 +24,31 @@
         }
       }
     },
+    "postos_2b_log": {
+      ".indexOn": [
+        "quando"
+      ],
+      ".read": "auth != null && auth.token.email != null && root.child('perfis').child(auth.token.email.toLowerCase().replace('.', ',')).child('todos').val() === true",
+      "$id": {
+        ".write": "auth != null && auth.token.email != null && root.child('perfis').child(auth.token.email.toLowerCase().replace('.', ',')).child('papel').exists() && !data.exists() && newData.exists()",
+        ".validate": "newData.hasChildren(['quando', 'email', 'acao']) && newData.child('quando').val() === now && newData.child('email').val() === auth.token.email",
+        "acao": {
+          ".validate": "newData.isString() && newData.val().length <= 40"
+        },
+        "detalhe": {
+          ".validate": "newData.isString() && newData.val().length <= 500"
+        },
+        "nome": {
+          ".validate": "newData.isString() && newData.val().length <= 80"
+        },
+        "papel": {
+          ".validate": "newData.isString() && newData.val().length <= 20"
+        },
+        "posto": {
+          ".validate": "newData.isString() && newData.val().length <= 60"
+        }
+      }
+    },
     "postos_2b_emprestimos": {
       ".indexOn": [
         "origem",
