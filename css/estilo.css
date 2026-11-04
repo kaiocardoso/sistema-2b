@@ -468,3 +468,10 @@ select.campo:disabled { background: #F4F0EC; color: var(--texto-2); }
 .campo-responsavel { background: #fff; border: 2px solid var(--tom-borda, var(--borda)); border-radius: var(--raio-p); padding: 12px 14px; margin-bottom: 14px; }
 .campo-responsavel .rotulo { font-size: .95rem; }
 .campo-responsavel .rotulo .icone { color: var(--vermelho); }
+
+/* frase do empréstimo: quem deve para quem */
+.emp-frase { font-size: 1rem; font-weight: 700; color: var(--texto); line-height: 1.35; }
+.emp-frase .devedor { color: var(--vermelho-escuro); font-weight: 900; }
+.emp-frase .credor { color: var(--verde-escuro); font-weight: 900; }
+.emp-origem { display: flex; align-items: center; gap: 5px; font-size: .78rem; color: var(--texto-2); font-weight: 700; margin-top: -4px; }
+.emp-origem .icone { width: 14px; height: 14px; }

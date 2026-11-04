@@ -9,8 +9,8 @@ export function montarFormEmprestimo(idForm) {
     const opcoesPostos = Object.keys(configPostos).map(p => `<option value="${esc(p)}">${esc(p)}</option>`).join('');
     form.innerHTML = `
         <div><label class="rotulo">Data</label><input type="date" name="data" class="campo" required value="${hojeISO()}"></div>
-        <div><label class="rotulo">Saiu de (origem)</label><select name="origem" class="campo" required><option value="">Selecione...</option>${opcoesPostos}</select></div>
-        <div><label class="rotulo">Foi para (destino)</label><select name="destino" class="campo" required><option value="">Selecione...</option>${opcoesPostos}</select></div>
+        <div><label class="rotulo">Quem emprestou (saiu de)</label><select name="origem" class="campo" required><option value="">Selecione...</option>${opcoesPostos}</select></div>
+        <div><label class="rotulo">Quem recebeu (vai devolver)</label><select name="destino" class="campo" required><option value="">Selecione...</option>${opcoesPostos}</select></div>
         <div><label class="rotulo">Combustível</label><select name="produto" class="campo" required>${produtosEmprestimo.map(p => `<option>${p}</option>`).join('')}</select></div>
         <div><label class="rotulo">Litragem (L)</label><input type="number" inputmode="decimal" step="any" min="1" name="volume" class="campo" placeholder="Ex: 5000" required></div>
         <button type="submit" class="botao botao-primario">${icone('check')} Registrar</button>`;
@@ -46,9 +46,10 @@ function cartaoEmprestimo(id, emp, acoes, i, animar) {
             <span class="chip chip-azul">${esc(emp.produto)}</span>
             <span class="emp-data">${esc(dataBR(emp.data))}</span>
         </div>
-        <div class="emp-rota">
-            <span class="origem">${esc(emp.origem)}</span>${icone('flecha', 'emp-flecha')}<span class="destino">${esc(emp.destino)}</span>
-        </div>
+        <p class="emp-frase">${pago
+            ? `<b class="devedor">${esc(emp.destino)}</b> devolveu <b>${num(volume)} L</b> para <b class="credor">${esc(emp.origem)}</b>`
+            : `<b class="devedor">${esc(emp.destino)}</b> deve <b>${num(volume - devolvido)} L</b> para <b class="credor">${esc(emp.origem)}</b>`}</p>
+        <p class="emp-origem">${icone('troca')} Saiu do ${esc(emp.origem)} e foi para o ${esc(emp.destino)}</p>
         <div class="emp-progresso">
             <div class="barra"><div class="nivel-${pago ? 'ok' : 'azul'}" style="--pct:${pct}%"></div></div>
             <p>${pago ? `${icone('check')} Quitado · ${num(volume)} L devolvidos`

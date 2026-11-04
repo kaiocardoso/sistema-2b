@@ -2,7 +2,7 @@
 // Sempre busca a versão mais nova na internet; a cópia guardada só é usada sem conexão.
 // Os dados do banco (Firebase) nunca são guardados aqui.
 
-const VERSAO = '2026-11-03-v6';
+const VERSAO = '2026-11-03-v7';
 const PREFIXO = 'postos2b:' + new URL(self.registration.scope).pathname + ':';
 const CACHE = PREFIXO + VERSAO;
 
