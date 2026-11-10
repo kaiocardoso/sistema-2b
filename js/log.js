@@ -7,11 +7,11 @@ const GRUPOS = {
     emprestimo_criado: 'emprestimos', emprestimo_devolucao: 'emprestimos', emprestimo_quitado: 'emprestimos', emprestimo_excluido: 'emprestimos',
     fechamento: 'fechamentos', correcao: 'fechamentos',
     encerrantes: 'estoque', atualizacao_estoque: 'estoque',
-    login: 'acessos'
+    login: 'acessos', relatorio: 'acessos'
 };
 const ICONES = {
     emprestimo_criado: 'mais', emprestimo_devolucao: 'troca', emprestimo_quitado: 'check', emprestimo_excluido: 'alerta',
-    fechamento: 'check', correcao: 'lapis', encerrantes: 'relogio', atualizacao_estoque: 'raio', login: 'usuario'
+    fechamento: 'check', correcao: 'lapis', encerrantes: 'relogio', atualizacao_estoque: 'raio', login: 'usuario', relatorio: 'baixar'
 };
 const PAPEIS = { gestor: 'Gestor', gerente: 'Gerente', caixa: 'Caixa' };
 

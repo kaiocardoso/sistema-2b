@@ -12,6 +12,7 @@ import { iniciarSecoes } from "./secoes.js";
 import { iniciarInstalacao, instalar } from "./instalar.js";
 import { carregarLog } from "./log.js";
 import { abrirHistoricoEstoque } from "./historico-estoque.js";
+import { abrirRelatorio } from "./relatorio.js";
 import { $, aviso, comEspera, saudacao, dataPorExtenso } from "./util.js";
 
 aplicarIcones();
@@ -146,6 +147,7 @@ document.addEventListener('click', (e) => {
     if (acao === 'fechar-historico') fecharHistorico();
     if (acao === 'atualizar-vendas') comEspera(alvo, atualizarVendasHoje);
     if (acao === 'atualizar-log') comEspera(alvo, carregarLog);
+    if (acao === 'relatorio') abrirRelatorio();
 });
 $('janela-historico').addEventListener('click', (e) => { if (e.target.id === 'janela-historico') fecharHistorico(); });
 document.addEventListener('keydown', (e) => { if (e.key === 'Escape') fecharHistorico(); });

@@ -587,3 +587,38 @@ select.campo:disabled { background: #F4F0EC; color: var(--texto-2); }
 .tabela-estoque td { padding: 7px 10px; border-top: 1px solid var(--borda); text-align: right; font-weight: 800; white-space: nowrap; }
 .tabela-estoque td small { display: block; font-weight: 600; color: var(--texto-2); font-size: .72rem; }
 @media (min-width: 720px) { .estoque-produtos { grid-template-columns: 1fr 1fr; } }
+
+/* ---------------- Relatório ---------------- */
+.saudacao-botoes { display: flex; gap: 8px; flex-wrap: wrap; }
+.janela-relatorio { border-top-color: var(--verde); }
+.rel-botoes { display: grid; grid-template-columns: 1fr; gap: 8px; }
+.rel-botoes .botao { padding: 13px; }
+#relatorio-impressao { display: none; }
+@media (max-width: 480px) { .saudacao-botoes { width: 100%; } .saudacao-botoes .botao { flex: 1; } }
+@media print {
+    @page { size: A4; margin: 12mm; }
+    body { background: #fff !important; padding: 0 !important; }
+    body > *:not(#relatorio-impressao) { display: none !important; }
+    #relatorio-impressao { display: block !important; color: #000; font-size: 10.5pt; }
+    #relatorio-impressao header { display: flex; align-items: center; gap: 12px; border-bottom: 3px solid #EC3237; padding-bottom: 8px; margin-bottom: 12px; }
+    #relatorio-impressao header img { width: 48px; height: 48px; }
+    #relatorio-impressao h1 { font-size: 17pt; margin: 0; }
+    #relatorio-impressao header p { margin: 0; color: #444; font-weight: 700; }
+    #relatorio-impressao .periodo { margin-left: auto; text-align: right; }
+    #relatorio-impressao .periodo b, #relatorio-impressao .periodo span { display: block; }
+    #relatorio-impressao .resumo { display: flex; gap: 10px; margin-bottom: 10px; }
+    #relatorio-impressao .resumo div { flex: 1; border: 1px solid #ccc; border-radius: 6px; padding: 6px 10px; }
+    #relatorio-impressao .resumo span { display: block; font-size: 8pt; text-transform: uppercase; color: #555; }
+    #relatorio-impressao .resumo b { font-size: 14pt; }
+    #relatorio-impressao h3 { font-size: 11pt; margin: 12px 0 4px; }
+    #relatorio-impressao table { width: 100%; border-collapse: collapse; font-size: 9pt; }
+    #relatorio-impressao th { background: #f0f0f0 !important; text-align: right; padding: 4px 6px; border: 1px solid #ccc; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    #relatorio-impressao td { text-align: right; padding: 3px 6px; border: 1px solid #ddd; }
+    #relatorio-impressao th:first-child, #relatorio-impressao td:first-child { text-align: left; }
+    #relatorio-impressao table.centro th, #relatorio-impressao table.centro td { text-align: center !important; }
+    #relatorio-impressao tr.vazio td { color: #999; }
+    #relatorio-impressao tr.total td { font-weight: 900; background: #FFF3C4 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    #relatorio-impressao tr { page-break-inside: avoid; }
+    #relatorio-impressao .obs { font-size: 8.5pt; color: #444; margin-top: 6px; }
+    #relatorio-impressao footer { margin-top: 12px; font-size: 8pt; color: #666; border-top: 1px solid #ccc; padding-top: 4px; }
+}

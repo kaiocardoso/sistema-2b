@@ -6,11 +6,11 @@ import { limitesDoDia, somarDias } from "./util.js";
 // Vendas de cada dia entre dois dias (inclusive), separadas por posto e por produto.
 // Busca até 2 dias depois do fim, porque fechamentos atrasados (depois da meia-noite)
 // ou corrigidos depois ainda pertencem ao dia certo.
-export async function vendasDoPeriodo(isoInicio, isoFim) {
+export async function vendasDoPeriodo(isoInicio, isoFim, postos = estado.postos) {
     const [inicio] = limitesDoDia(isoInicio);
     const [, fim] = limitesDoDia(somarDias(isoFim, 2));
     const porDia = {};
-    for (const posto of estado.postos) {
+    for (const posto of postos) {
         let validos = [];
         try {
             ({ validos } = analisarHistorico(await buscarHistorico(posto, inicio, fim)));

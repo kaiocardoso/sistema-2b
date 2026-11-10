@@ -2,7 +2,7 @@
 // Sempre busca a versão mais nova na internet; a cópia guardada só é usada sem conexão.
 // Os dados do banco (Firebase) nunca são guardados aqui.
 
-const VERSAO = '2026-11-10-v12';
+const VERSAO = '2026-11-10-v13';
 const PREFIXO = 'postos2b:' + new URL(self.registration.scope).pathname + ':';
 const CACHE = PREFIXO + VERSAO;
 
@@ -10,7 +10,7 @@ const ARQUIVOS = [
     './', './index.html', './manifest.webmanifest', './css/estilo.css',
     './js/app.js', './js/config.js', './js/firebase.js', './js/dados.js', './js/util.js', './js/icones.js',
     './js/secoes.js', './js/cards.js', './js/caixa.js', './js/gerente.js', './js/gestor.js',
-    './js/emprestimos.js', './js/historico.js', './js/instalar.js', './js/log.js', './js/vendas.js', './js/historico-posto.js', './js/historico-estoque.js',
+    './js/emprestimos.js', './js/historico.js', './js/instalar.js', './js/log.js', './js/vendas.js', './js/historico-posto.js', './js/historico-estoque.js', './js/relatorio.js',
     './img/logo-2b.png', './img/icone-192.png', './img/favicon-48.png'
 ];
 
