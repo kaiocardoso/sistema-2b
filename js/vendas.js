@@ -33,3 +33,26 @@ export async function vendasDoPeriodo(isoInicio, isoFim) {
     }
     return porDia;
 }
+
+// Histórico de vendas de UM posto, dia a dia, com cada fechamento
+export async function vendasDoPosto(posto, isoInicio, isoFim) {
+    const [inicio] = limitesDoDia(isoInicio);
+    const [, fim] = limitesDoDia(somarDias(isoFim, 2));
+    const { validos } = analisarHistorico(await buscarHistorico(posto, inicio, fim));
+    const porDia = {};
+    validos.forEach(({ ts, reg, dia }) => {
+        if (dia < isoInicio || dia > isoFim) return;
+        const D = porDia[dia] ||= { total: 0, produtos: {}, fechamentos: [] };
+        let litros = 0;
+        Object.entries(reg.valores || {}).forEach(([p, v]) => {
+            if (!rotulosProdutos[p]) return;
+            const n = Number(v?.vendido) || 0;
+            if (n <= 0) return;
+            D.produtos[p] = (D.produtos[p] || 0) + n;
+            if (p !== 'arla_b') { litros += n; D.total += n; }
+        });
+        D.fechamentos.push({ ts, litros, nome: reg.responsavelFechamento || reg.enviadoPorNome || '', correcao: reg.evento === 'correcao' });
+    });
+    Object.values(porDia).forEach(D => D.fechamentos.sort((a, b) => a.ts - b.ts));
+    return porDia;
+}

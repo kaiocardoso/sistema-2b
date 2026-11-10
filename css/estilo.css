@@ -536,3 +536,28 @@ select.campo:disabled { background: #F4F0EC; color: var(--texto-2); }
 .historico-dia-total { grid-area: total; font-size: 1.1rem; font-weight: 900; color: var(--verde-escuro); }
 .historico-dica { margin-top: 8px; font-size: .8rem; }
 @media (max-width: 480px) { .historico-resumo { grid-template-columns: 1fr 1fr; } .historico-resumo > div:last-child { grid-column: 1 / -1; } }
+
+/* ---------------- Histórico de vendas de um posto ---------------- */
+.venda-posto.clicavel { cursor: pointer; transition: transform .15s var(--transicao), box-shadow .2s, border-color .2s; }
+.venda-posto.clicavel:hover, .venda-posto.clicavel:focus-visible { transform: translateY(-2px); box-shadow: var(--sombra-forte); border-color: var(--verde); outline: none; }
+.venda-posto-rodape { display: flex; align-items: center; justify-content: center; gap: 6px; padding: 9px 12px; border-top: 1px solid var(--borda); background: var(--verde-claro); color: var(--verde-escuro); font-size: .82rem; font-weight: 800; }
+.venda-posto-rodape .icone { width: 16px; height: 16px; }
+.chip-botao { border: 0; cursor: pointer; font-family: inherit; }
+.chip-botao:hover { background: var(--verde-claro); color: var(--verde-escuro); }
+.janela-posto { border-top: 6px solid var(--verde); }
+.janela-posto h2 { color: var(--verde-escuro); }
+.hp-produtos { display: grid; grid-template-columns: 1fr; gap: 9px; background: #fff; border: 1px solid var(--borda); border-radius: 12px; padding: 12px 14px; }
+.hp-dias { display: flex; flex-direction: column; gap: 6px; }
+.hp-dia { background: #fff; border: 1px solid var(--borda); border-radius: 12px; }
+.hp-dia.vazio { display: flex; justify-content: space-between; padding: 10px 14px; color: var(--texto-3); font-size: .88rem; background: var(--fundo-2); }
+.hp-dia summary { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 10px 14px; cursor: pointer; list-style: none; }
+.hp-dia summary::-webkit-details-marker { display: none; }
+.hp-dia summary small { display: block; font-size: .76rem; color: var(--texto-2); font-weight: 700; }
+.hp-dia[open] summary { border-bottom: 1px solid var(--borda); background: var(--fundo-2); border-radius: 12px 12px 0 0; }
+.hp-dia-total { font-size: 1.1rem; font-weight: 900; color: var(--verde-escuro); }
+.hp-dia-detalhe { display: grid; grid-template-columns: 1fr; gap: 12px; padding: 12px 14px; }
+.hp-bloco h5 { margin: 0 0 4px; font-size: .72rem; text-transform: uppercase; letter-spacing: .06em; color: var(--texto-2); }
+.hp-bloco .registro-linha span { display: inline-flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+.hp-bloco .icone { width: 14px; height: 14px; }
+.janela-posto .grafico-dias { margin-bottom: 4px; }
+@media (min-width: 720px) { .hp-produtos { grid-template-columns: 1fr 1fr; column-gap: 20px; } .hp-dia-detalhe { grid-template-columns: 1fr 1.3fr; } }

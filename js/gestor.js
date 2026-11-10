@@ -7,6 +7,7 @@ import { $, esc, num, hojeISO, somarDias, dataBR, diaDaSemana, contarAte } from 
 import { vendasDoPeriodo } from "./vendas.js";
 import { icone } from "./icones.js";
 import { iniciarLog } from "./log.js";
+import { abrirHistoricoPosto } from "./historico-posto.js";
 
 export function abrirGestor() {
     $('tela-gestor').classList.remove('oculto');
@@ -56,6 +57,15 @@ export function iniciarVendas() {
         desenharDia(alvo.dataset.dia);
         $('vendas-dia').scrollIntoView({ behavior: 'smooth', block: 'center' });
     };
+    // tocar no card de um posto abre o histórico de vendas dele
+    $('vendas-postos').onclick = (e) => {
+        const card = e.target.closest('[data-posto]');
+        if (card) abrirHistoricoPosto(card.dataset.posto);
+    };
+    $('vendas-postos').onkeydown = (e) => {
+        const card = e.target.closest('[data-posto]');
+        if (card && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); abrirHistoricoPosto(card.dataset.posto); }
+    };
 }
 
 // Botão "Atualizar": recarrega o dia escolhido e os últimos dias
@@ -90,7 +100,7 @@ async function desenharDia(iso) {
     porPosto.innerHTML = comVenda.sort((a, b) => b.total - a.total).map(({ posto, total, vendas, ultimo, qtd, nome }, i) => {
         const itens = ordenarProdutos(vendas);
         const maior = Math.max(1, ...itens.filter(([p]) => p !== 'arla_b').map(([, n]) => n));
-        return `<article class="venda-posto entrar" style="--i:${i}">
+        return `<article class="venda-posto clicavel entrar" style="--i:${i}" data-posto="${esc(posto)}" tabindex="0" role="button" aria-label="Ver histórico de vendas do ${esc(posto)}">
             <header class="venda-posto-topo">
                 <div><strong>${esc(posto)}</strong><small>${qtd} fechamento${qtd > 1 ? 's' : ''} · último às ${hora(ultimo)}${nome ? ' · ' + esc(nome) : ''}</small></div>
                 <span class="venda-posto-total">${num(total)} L</span>
@@ -101,11 +111,12 @@ async function desenharDia(iso) {
                     ${p === 'arla_b' ? '' : `<div class="barra barra-fina"><div class="nivel-verde" style="--pct:${Math.round((n / maior) * 100)}%"></div></div>`}
                 </div>`).join('')}
             </div>
+            <footer class="venda-posto-rodape">${icone('grafico')} Ver histórico do posto ${icone('flecha')}</footer>
         </article>`;
     }).join('') + (semVenda.length ? `
         <div class="sem-fechamento">
             <span>${icone('relogio')} Sem fechamento ${ehHoje ? 'hoje' : 'neste dia'}:</span>
-            ${semVenda.map(p => `<span class="chip chip-cinza">${esc(p)}</span>`).join('')}
+            ${semVenda.map(p => `<button type="button" class="chip chip-cinza chip-botao" data-posto="${esc(p)}" title="Ver histórico do ${esc(p)}">${esc(p)}</button>`).join('')}
         </div>` : '');
     $('vendas-dia-nome').textContent = nomeDia;
 }
@@ -146,6 +157,7 @@ async function carregarHistoricoVendas() {
             </button>`;
         }).join('')}</div>
         <p class="texto-suave historico-dica">Toque num dia para ver os detalhes por posto.</p>`;
+    caixa.querySelectorAll('.grafico-dias').forEach(g => { g.scrollLeft = g.scrollWidth; });  // abre nos dias mais recentes
 }
 
 // Combustíveis primeiro (do maior para o menor), ARLA no fim
