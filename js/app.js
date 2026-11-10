@@ -11,6 +11,7 @@ import { aplicarIcones } from "./icones.js";
 import { iniciarSecoes } from "./secoes.js";
 import { iniciarInstalacao, instalar } from "./instalar.js";
 import { carregarLog } from "./log.js";
+import { abrirHistoricoEstoque } from "./historico-estoque.js";
 import { $, aviso, comEspera, saudacao, dataPorExtenso } from "./util.js";
 
 aplicarIcones();
@@ -132,6 +133,8 @@ async function sair() {
 
 // ---------- Botões gerais ----------
 document.addEventListener('click', (e) => {
+    const estoque = e.target.closest('[data-estoque-posto]');
+    if (estoque) return abrirHistoricoEstoque(estoque.dataset.estoquePosto);
     const alvo = e.target.closest('[data-acao]');
     if (!alvo) return;
     const acao = alvo.dataset.acao;

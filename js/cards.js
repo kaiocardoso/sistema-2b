@@ -70,5 +70,6 @@ export function cardPosto(posto, info, { comEncerrantesAbertos = false } = {}) {
         </header>
         ${info ? `<div class="tanques">${tanques}</div>` : `<div class="posto-sem-envio">${icone('tanque')}<span>Este posto ainda não enviou nenhum lançamento.</span></div>`}
         ${encerrantes}
+        ${info ? `<button type="button" class="botao-historico-estoque" data-estoque-posto="${esc(posto)}">${icone('grafico')} Ver histórico do estoque</button>` : ''}
     </article>`;
 }

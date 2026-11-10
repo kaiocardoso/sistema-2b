@@ -561,3 +561,29 @@ select.campo:disabled { background: #F4F0EC; color: var(--texto-2); }
 .hp-bloco .icone { width: 14px; height: 14px; }
 .janela-posto .grafico-dias { margin-bottom: 4px; }
 @media (min-width: 720px) { .hp-produtos { grid-template-columns: 1fr 1fr; column-gap: 20px; } .hp-dia-detalhe { grid-template-columns: 1fr 1.3fr; } }
+
+/* ---------------- Histórico de estoque ---------------- */
+.botao-historico-estoque { display: flex; align-items: center; justify-content: center; gap: 6px; width: 100%; border: 1.5px solid var(--borda); background: var(--fundo-2); color: var(--vermelho-escuro); border-radius: 10px; padding: 9px; font-family: inherit; font-weight: 800; font-size: .84rem; cursor: pointer; transition: background .2s, border-color .2s; }
+.botao-historico-estoque:hover { background: var(--vermelho-claro); border-color: var(--vermelho); }
+.botao-historico-estoque .icone { width: 16px; height: 16px; }
+.janela-estoque { border-top: 6px solid var(--vermelho); }
+.janela-estoque h2 { color: var(--vermelho-escuro); }
+.estoque-produtos { display: grid; grid-template-columns: 1fr; gap: 10px; }
+.estoque-produto { background: #fff; border: 1px solid var(--borda); border-radius: 12px; padding: 10px 12px; }
+.estoque-grafico { display: block; width: 100%; height: 70px; margin: 4px 0 6px; background: var(--fundo-2); border-radius: 8px; }
+.estoque-grafico .linha { fill: none; stroke: var(--vermelho); stroke-width: 2; vector-effect: non-scaling-stroke; }
+.estoque-grafico .area { fill: rgba(236, 50, 55, .1); }
+.estoque-grafico .ponto { fill: var(--vermelho-escuro); }
+.estoque-grafico .linha-capacidade { stroke: var(--texto-3); stroke-dasharray: 4 3; stroke-width: 1; vector-effect: non-scaling-stroke; }
+.estoque-grafico .linha-baixo { stroke: #E58A00; stroke-dasharray: 2 3; stroke-width: 1; vector-effect: non-scaling-stroke; }
+.estoque-faixa { display: flex; gap: 12px; flex-wrap: wrap; font-size: .76rem; color: var(--texto-2); font-weight: 700; }
+.he-legenda { font-size: .78rem; margin-bottom: 10px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.leg { display: inline-block; width: 18px; border-top: 2px dashed var(--texto-3); }
+.leg-baixo { border-top-color: #E58A00; }
+.tabela-rolagem { overflow-x: auto; background: #fff; border: 1px solid var(--borda); border-radius: 12px; max-height: 50vh; }
+.tabela-estoque { width: 100%; border-collapse: collapse; font-size: .82rem; }
+.tabela-estoque th { position: sticky; top: 0; background: #F3EFEB; text-align: right; padding: 8px 10px; font-size: .7rem; text-transform: uppercase; color: var(--texto-2); white-space: nowrap; }
+.tabela-estoque th:first-child, .tabela-estoque td:first-child { text-align: left; }
+.tabela-estoque td { padding: 7px 10px; border-top: 1px solid var(--borda); text-align: right; font-weight: 800; white-space: nowrap; }
+.tabela-estoque td small { display: block; font-weight: 600; color: var(--texto-2); font-size: .72rem; }
+@media (min-width: 720px) { .estoque-produtos { grid-template-columns: 1fr 1fr; } }
