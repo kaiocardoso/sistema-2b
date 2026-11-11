@@ -113,6 +113,25 @@ export function pedirNumero(titulo, mensagem) {
     });
 }
 
+// Janela para digitar um texto (ex.: motivo)
+export function pedirTexto(titulo, mensagem, placeholder = '') {
+    return new Promise((resolve) => {
+        const fundo = janela(`
+            <h3>${esc(titulo)}</h3>
+            <p class="texto-suave">${esc(mensagem)}</p>
+            <input type="text" class="campo" maxlength="300" placeholder="${esc(placeholder)}">
+            <div class="acoes">
+                <button type="button" class="botao botao-claro" data-r="cancelar">Cancelar</button>
+                <button type="button" class="botao botao-perigo" data-r="ok">Anular</button>
+            </div>`, (e, fechar) => {
+                if (e.target === e.currentTarget || e.target.closest('[data-r="cancelar"]')) { fechar(); resolve(null); }
+                if (e.target.closest('[data-r="ok"]')) { fechar(); resolve(input.value.trim()); }
+            });
+        const input = fundo.querySelector('input');
+        setTimeout(() => input.focus(), 60);
+    });
+}
+
 // Janela de confirmação
 export function confirmar(titulo, mensagem, textoOk = 'Confirmar', perigo = false) {
     return new Promise((resolve) => {

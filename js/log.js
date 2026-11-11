@@ -4,13 +4,13 @@ import { $, esc, num, temValor, hojeISO, limitesDoDia, dataBR } from "./util.js"
 import { icone } from "./icones.js";
 
 const GRUPOS = {
-    emprestimo_criado: 'emprestimos', emprestimo_devolucao: 'emprestimos', emprestimo_quitado: 'emprestimos', emprestimo_excluido: 'emprestimos',
+    emprestimo_criado: 'emprestimos', emprestimo_devolucao: 'emprestimos', emprestimo_quitado: 'emprestimos', emprestimo_excluido: 'emprestimos', lancamento_anulado: 'fechamentos',
     fechamento: 'fechamentos', correcao: 'fechamentos',
     encerrantes: 'estoque', atualizacao_estoque: 'estoque',
     login: 'acessos', relatorio: 'acessos'
 };
 const ICONES = {
-    emprestimo_criado: 'mais', emprestimo_devolucao: 'troca', emprestimo_quitado: 'check', emprestimo_excluido: 'alerta',
+    emprestimo_criado: 'mais', emprestimo_devolucao: 'troca', emprestimo_quitado: 'check', emprestimo_excluido: 'alerta', lancamento_anulado: 'alerta',
     fechamento: 'check', correcao: 'lapis', encerrantes: 'relogio', atualizacao_estoque: 'raio', login: 'usuario', relatorio: 'baixar'
 };
 const PAPEIS = { gestor: 'Gestor', gerente: 'Gerente', caixa: 'Caixa' };
@@ -52,7 +52,7 @@ function desenhar() {
     const itens = registros.filter(r => filtro === 'tudo' || GRUPOS[r.acao] === filtro);
     $('log-qtd').textContent = `${itens.length} registro${itens.length === 1 ? '' : 's'}`;
     $('log-lista').innerHTML = itens.length ? itens.map(r => `
-        <div class="log-item log-${GRUPOS[r.acao] || 'outros'} ${r.acao === 'emprestimo_excluido' ? 'log-perigo' : ''}">
+        <div class="log-item log-${GRUPOS[r.acao] || 'outros'} ${r.acao === 'emprestimo_excluido' || r.acao === 'lancamento_anulado' ? 'log-perigo' : ''}">
             <span class="log-icone">${icone(ICONES[r.acao] || 'relogio')}</span>
             <div class="log-corpo">
                 <div class="log-topo">

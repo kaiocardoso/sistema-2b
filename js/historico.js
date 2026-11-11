@@ -1,7 +1,7 @@
 // Janela do histórico (LMC e auditoria)
 import { bicosPostos, rotulosProdutos, getProdutosPermitidos, unidade } from "./config.js";
-import { estado, buscarHistorico, analisarHistorico } from "./dados.js";
-import { $, esc, num, temValor, hojeISO, limitesDoDia } from "./util.js";
+import { estado, buscarHistorico, analisarHistorico, anularLancamento, registrarLog } from "./dados.js";
+import { $, esc, num, temValor, hojeISO, limitesDoDia, aviso, comEspera, confirmar, pedirTexto } from "./util.js";
 
 export function abrirHistorico(soMeuPosto) {
     const select = $('historico-posto');
@@ -29,6 +29,7 @@ async function carregar() {
         const dados = await buscarHistorico(posto, inicio, fim);
         const analise = analisarHistorico(dados);
         const chaves = Object.keys(dados).filter(ts => /^[0-9]+$/.test(ts)).sort((a, b) => b - a);
+        dadosAtuais = { posto, dados };
         lista.innerHTML = chaves.length
             ? chaves.map((ts, i) => registro(dados[ts], ts, posto, analise, i)).join('')
             : '<div class="vazio-lista">Nenhum registro neste dia.</div>';
@@ -39,7 +40,13 @@ async function carregar() {
 }
 
 // Etiqueta de cada registro: o que ele foi e se conta nas vendas
+let dadosAtuais = null;
+const ehAdmin = () => estado.perfil?.papel === 'admin';
+const litros = (r) => Object.entries(r?.valores || {}).reduce((s, [p, v]) => p === 'arla_b' ? s : s + (Number(v?.vendido) || 0), 0);
+
 function etiqueta(info, ts, analise) {
+    if (info.evento === 'anulacao') return [`Anulação do lançamento das ${hora(info.anula)}`, 'chip-vermelho'];
+    if (analise.anulados.has(ts)) return ['Anulado pelo administrador', 'chip-vermelho', true];
     if (analise.substituidos.has(ts)) return ['Substituído por correção', 'chip-cinza', true];
     const v = analise.validos.find(x => x.ts === ts);
     const dia = v ? ` · vendas de ${v.dia.split('-').reverse().join('/').slice(0, 5)}` : '';
@@ -68,11 +75,41 @@ function registro(info, ts, posto, analise, i = 0) {
             return `<div class="registro-linha"><span>Bico ${b.id}</span>${temValor(e) ? `<strong>${num(Number(e))}</strong>` : '<span class="sem-info">–</span>'}</div>`;
         }).join('')
         : '<p class="texto-suave">Sem encerrantes.</p>';
+    if (info.evento === 'anulacao') {
+        return `<div class="registro registro-anulacao entrar" style="--i:${Math.min(i, 8)}">
+            <div class="registro-topo"><span>${new Date(Number(ts)).toLocaleTimeString('pt-BR')}${info.enviadoPorNome ? ' · ' + esc(info.enviadoPorNome) : ''}</span><span class="chip ${cor}">${esc(texto)}</span></div>
+            <p class="texto-suave"><b>Motivo:</b> ${esc(info.motivo || '–')}</p>
+        </div>`;
+    }
+    const podeAnular = ehAdmin() && !riscado && (analise.idsValidos.has(ts) || info.evento === 'atualizacao' || /Atualiza/.test(info.tipoEnvio || ''));
     return `<div class="registro ${riscado ? 'substituido' : ''} entrar" style="--i:${Math.min(i, 8)}">
         <div class="registro-topo"><span>${new Date(Number(ts)).toLocaleTimeString('pt-BR')}${quemFez(info) ? ' · ' + esc(quemFez(info)) : ''}</span><span class="chip ${cor}">${esc(texto)}</span></div>
         <div class="registro-corpo">
             <div><h4 class="titulo-tanques">Tanques</h4>${tanques}</div>
             <div><h4 class="titulo-encerrantes">Encerrantes</h4>${bicos}</div>
         </div>
+        ${podeAnular ? `<div class="registro-acoes"><button type="button" class="botao botao-texto" data-anular="${ts}">Anular este lançamento</button></div>` : ''}
     </div>`;
 }
+
+// Botão "Anular este lançamento" (só administrador)
+document.addEventListener('click', async (e) => {
+    const botao = e.target.closest('[data-anular]');
+    if (!botao || !ehAdmin() || !dadosAtuais) return;
+    const ts = botao.dataset.anular, { posto, dados } = dadosAtuais, reg = dados[ts];
+    if (!reg) return;
+    const quando = `${new Date(Number(ts)).toLocaleDateString('pt-BR')} às ${hora(ts)}`;
+    const resumo = litros(reg) ? `${num(litros(reg))} L` : 'atualização de estoque';
+    if (!await confirmar('Anular lançamento', `${posto}: lançamento de ${quando} (${resumo}${reg.responsavelFechamento ? ', ' + reg.responsavelFechamento : ''}). Ele deixa de contar nas vendas e no estoque, mas continua no histórico, riscado.`, 'Continuar', true)) return;
+    const motivo = await pedirTexto('Motivo da anulação', 'Escreva rapidamente por que este lançamento está sendo anulado.', 'Ex.: lançado no posto errado');
+    if (motivo === null) return;
+    if (!motivo) return aviso('Escreva o motivo da anulação.', 'erro');
+    await comEspera(botao, async () => {
+        try {
+            await anularLancamento(posto, ts, reg, motivo);
+            registrarLog('lancamento_anulado', `Anulou o lançamento de ${posto} de ${quando} (${resumo}). Motivo: ${motivo}`);
+            aviso('Lançamento anulado.');
+            carregar();
+        } catch (err) { console.error(err); aviso('Não foi possível anular: ' + err.message, 'erro'); }
+    });
+});

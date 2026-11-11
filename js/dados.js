@@ -113,15 +113,21 @@ export function diaDasVendas(ts, r, hist = null, prof = 0) {
 // Com "iso", devolve só os fechamentos cujas vendas são daquele dia.
 export function analisarHistorico(hist, iso = null) {
     const entradas = Object.entries(hist || {}).filter(([ts]) => /^[0-9]+$/.test(ts)).sort((x, y) => x[0] - y[0]);
-    const substituidosTs = new Set(), substituidasDatas = new Set();
+    const substituidosTs = new Set(), substituidasDatas = new Set(), anuladosTs = new Set(), anuladasDatas = new Set();
     entradas.forEach(([, r]) => {
+        if (r?.evento === 'anulacao') {
+            if (r.anula) anuladosTs.add(String(r.anula));
+            if (r.anulaData) anuladasDatas.add(r.anulaData);
+            return;
+        }
         if (r?.evento !== 'correcao') return;
         if (r.substitui) substituidosTs.add(String(r.substitui));
         if (r.substituiData) substituidasDatas.add(r.substituiData);
     });
-    const validos = [], substituidos = new Set(), vistos = new Set();
+    const validos = [], substituidos = new Set(), anulados = new Set(), vistos = new Set();
     entradas.forEach(([ts, r]) => {
         if (!r) return;
+        if (anuladosTs.has(ts)) { anulados.add(ts); return; }
         if (r.evento) {
             if (r.evento !== 'fechamento' && r.evento !== 'correcao') return;
             if (substituidosTs.has(ts)) { substituidos.add(ts); return; }
@@ -130,12 +136,13 @@ export function analisarHistorico(hist, iso = null) {
             const quando = r.dataFormatada || ts;
             if (vistos.has(quando)) return;
             vistos.add(quando);
+            if (anuladasDatas.has(quando)) { anulados.add(ts); return; }
             if (substituidosTs.has(ts) || substituidasDatas.has(quando)) { substituidos.add(ts); return; }
         }
         const dia = diaDasVendas(ts, r, hist);
         if (!iso || dia === iso) validos.push({ ts, reg: r, dia });
     });
-    return { validos, substituidos, idsValidos: new Set(validos.map(v => v.ts)) };
+    return { validos, substituidos, anulados, idsValidos: new Set(validos.map(v => v.ts)) };
 }
 
 export function responsavel() {
@@ -165,6 +172,34 @@ export async function atualizarDevolucao(id, novoDevolvido, log) {
         atualizadoPor: log,
         atualizadoPorEmail: auth.currentUser.email
     });
+}
+
+// ---------- Anular lançamento (só administrador) ----------
+// Não apaga nada: grava um registro de anulação no histórico. O lançamento anulado deixa de
+// contar nas vendas e no estoque. Se ele era a situação atual do posto, volta a leitura anterior.
+export async function anularLancamento(posto, ts, reg, motivo) {
+    const agora = Date.now();
+    await set(ref(db, `${CAMINHO.historico}/${posto}/${agora}`), {
+        evento: 'anulacao', tipoEnvio: 'Anulação', anula: String(ts),
+        ...(reg.dataFormatada && !reg.evento ? { anulaData: reg.dataFormatada } : {}),
+        motivo: String(motivo).slice(0, 300), dataFormatada: new Date(agora).toLocaleString('pt-BR'),
+        enviadoPor: auth.currentUser.email, enviadoPorNome: estado.perfil.nome
+    });
+    // estoque atual: refaz a partir do último lançamento que continua valendo
+    const hist = await buscarHistorico(posto, Number(ts) - 45 * 86400000, agora + 1000);
+    const { substituidos, anulados } = analisarHistorico(hist);
+    const restantes = Object.entries(hist).filter(([k, r]) => /^[0-9]+$/.test(k) && r && r.evento !== 'anulacao' && !anulados.has(k) && !substituidos.has(k)).sort((a, b) => a[0] - b[0]);
+    const ultimo = restantes.at(-1);
+    if (!ultimo || Number(ultimo[0]) < Number(ts)) {
+        const atual = (await get(ref(db, `${CAMINHO.dados}/${posto}`))).val() || {};
+        if (ultimo) {
+            const { evento, substitui, substituiData, ...base } = ultimo[1];
+            await set(ref(db, `${CAMINHO.dados}/${posto}`), { ...base, enviadoPor: auth.currentUser.email, enviadoPorNome: base.enviadoPorNome || estado.perfil.nome });
+        } else if (atual.dataFormatada === reg.dataFormatada) {
+            const { valores, tipoEnvio, dataFormatada, responsavelFechamento, diaVendas, ...resto } = atual;
+            await set(ref(db, `${CAMINHO.dados}/${posto}`), { ...resto, enviadoPor: auth.currentUser.email, enviadoPorNome: estado.perfil.nome });
+        }
+    }
 }
 
 // ---------- Registro de atividades (log) ----------

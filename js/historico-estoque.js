@@ -12,10 +12,10 @@ const dataHora = (ts) => `${new Date(Number(ts)).toLocaleDateString('pt-BR').sli
 // fechamentos substituídos por correção também não.
 async function leiturasEstoque(posto, inicio, fim) {
     const hist = await buscarHistorico(posto, inicio, fim);
-    const { substituidos } = analisarHistorico(hist);
+    const { substituidos, anulados } = analisarHistorico(hist);
     const vistos = new Set(), leituras = [];
     Object.entries(hist || {}).filter(([ts]) => /^[0-9]+$/.test(ts)).sort((a, b) => a[0] - b[0]).forEach(([ts, r]) => {
-        if (!r || substituidos.has(ts) || r.evento === 'encerrantes') return;
+        if (!r || substituidos.has(ts) || anulados.has(ts) || r.evento === 'encerrantes' || r.evento === 'anulacao') return;
         if (!r.evento) {   // registros antigos: cada envio conta uma vez
             const chave = (r.tipoEnvio || '') + '|' + (r.dataFormatada || ts);
             if (vistos.has(chave)) return;
