@@ -622,3 +622,5 @@ select.campo:disabled { background: #F4F0EC; color: var(--texto-2); }
     #relatorio-impressao .obs { font-size: 8.5pt; color: #444; margin-top: 6px; }
     #relatorio-impressao footer { margin-top: 12px; font-size: 8pt; color: #666; border-top: 1px solid #ccc; padding-top: 4px; }
 }
+
+.dia-vendas-valor { display: block; font-size: 1.1rem; font-weight: 900; color: var(--texto); }

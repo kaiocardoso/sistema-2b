@@ -1,7 +1,7 @@
 // Tela do caixa / pista: encerrantes e fechamento de turno
-import { bicosPostos, rotulosProdutos, getProdutosPermitidos, unidade, HORA_VIRADA_DO_DIA } from "./config.js";
+import { bicosPostos, rotulosProdutos, getProdutosPermitidos, unidade, HORA_VIRADA_DO_DIA, diaDasVendasPelaHora } from "./config.js";
 import { estado, salvarPosto, escutarDados, buscarHistorico, analisarHistorico, registrarLog } from "./dados.js";
-import { $, esc, num, temValor, agoraFormatado, aviso, comEspera, hojeISO, somarDias, dataBR } from "./util.js";
+import { $, esc, num, temValor, agoraFormatado, aviso, comEspera, hojeISO, dataBR, diaDaSemana } from "./util.js";
 import { icone } from "./icones.js";
 import { abrirSecao } from "./secoes.js";
 
@@ -57,8 +57,9 @@ function montarFormularios() {
         </div>`).join('');
     $('total-vendido').textContent = '0';
     $('botao-fechamento').innerHTML = TEXTO_BOTAO;
-    $('dia-vendas').onchange = avisarDia;
     prepararDiaVendas();
+    clearInterval(relogioDia);
+    relogioDia = setInterval(() => prepararDiaVendas(correcao?.dia), 30000);   // acompanha o relógio
 
     $('planilha-linhas').oninput = (e) => { if (e.target.dataset.produto) calcularLinha(e.target.dataset.produto); };
     $('form-encerrantes').onsubmit = salvarEncerrantes;
@@ -68,25 +69,20 @@ function montarFormularios() {
 }
 
 // ---------- Dia das vendas ----------
-// Da meia-noite até HORA_VIRADA_DO_DIA, o padrão é o dia anterior (turno que terminou às 23:59)
-function diaPadrao() {
-    const agora = new Date();
-    return agora.getHours() < HORA_VIRADA_DO_DIA ? somarDias(hojeISO(), -1) : hojeISO();
-}
+// Automático, pela hora em que o fechamento é salvo: até 04:00 conta para o dia anterior.
+let relogioDia = null;
+const diaPadrao = () => diaDasVendasPelaHora(new Date());
+const hh = String(HORA_VIRADA_DO_DIA).padStart(2, '0');
 
-function prepararDiaVendas(dia = diaPadrao()) {
-    const campo = $('dia-vendas');
-    campo.max = hojeISO();
-    campo.min = somarDias(hojeISO(), -7);
-    campo.value = dia;
-    avisarDia();
-}
-
-function avisarDia() {
-    const dia = $('dia-vendas').value, hoje = hojeISO();
-    const el = $('dia-vendas-aviso');
-    if (dia && dia !== hoje) el.textContent = `Atenção: estas vendas vão contar para ${dataBR(dia)}, não para hoje. ${dia === somarDias(hoje, -1) && new Date().getHours() < HORA_VIRADA_DO_DIA ? 'Como passou da meia-noite, o sistema sugeriu ontem. Mude se o turno for de hoje.' : ''}`;
-    else el.textContent = '';
+function prepararDiaVendas(diaFixo = null) {
+    const dia = diaFixo || diaPadrao();
+    $('dia-vendas').textContent = `${diaDaSemana(dia, false)}, ${dataBR(dia)}`;
+    $('dia-vendas').dataset.dia = dia;
+    $('dia-vendas-aviso').textContent = diaFixo
+        ? 'Correção: conta no mesmo dia do fechamento original.'
+        : dia !== hojeISO()
+            ? `Como ainda não passou das ${hh}:00, este fechamento conta para o dia anterior.`
+            : `Fechamentos salvos até as ${hh}:00 contam para o dia anterior.`;
 }
 
 function calcularLinha(p) {
@@ -254,8 +250,8 @@ async function salvarPlanilha(e) {
     const corrigindo = correcao;
     const responsavel = $('responsavel-fechamento').value.trim().replace(/\s+/g, ' ');
     if (!responsavel) { aviso('Digite o nome de quem está fazendo o fechamento.', 'erro'); $('responsavel-fechamento').focus(); return; }
-    const diaVendas = $('dia-vendas').value;
-    if (!/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(diaVendas) || diaVendas > hojeISO()) { aviso('Confira o dia das vendas.', 'erro'); $('dia-vendas').focus(); return; }
+    const diaVendas = corrigindo ? corrigindo.dia : diaPadrao();   // calculado na hora de salvar
+    prepararDiaVendas(corrigindo?.dia);
     const valores = {};
     let txt = corrigindo ? `✏️ *CORREÇÃO do fechamento das ${horaDe(corrigindo.ts)}*\n` : '';
     txt += `📊 *FECHAMENTO - 2B*\n🏢 Posto: ${posto}\n🕒 Horário: ${new Date().toLocaleString('pt-BR')}\n📅 Vendas do dia: ${dataBR(diaVendas)}\n👤 Responsável: ${responsavel}\n\n`;

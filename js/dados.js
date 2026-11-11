@@ -1,6 +1,6 @@
 // Estado da sessão + leitura e gravação no banco
 import { db, auth, ref, set, get, push, serverTimestamp, onValue, query, orderByChild, orderByKey, equalTo, startAt, endAt, CAMINHO } from "./firebase.js";
-import { configPostos, DOMINIO_LOGIN, LOGIN_ADMIN, HORA_VIRADA_DO_DIA } from "./config.js";
+import { configPostos, DOMINIO_LOGIN, LOGIN_ADMIN, diaDasVendasPelaHora } from "./config.js";
 
 export const estado = {
     perfil: null,            // { papel, nome, postos, todos }
@@ -88,18 +88,20 @@ export async function salvarPosto(dadosNovos, evento, extrasHistorico = {}) {
     return ts;
 }
 
-// Dia a que as vendas de um fechamento pertencem.
-// - Fechamentos novos dizem o dia ("diaVendas"), escolhido pelo caixa.
-// - Os outros usam a hora do envio; enviados da meia-noite até HORA_VIRADA_DO_DIA
-//   contam para o dia anterior.
-export function diaDasVendas(ts, r) {
-    if (/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(r?.diaVendas || '')) return r.diaVendas;
+// Dia a que as vendas de um fechamento pertencem, sempre pela hora em que foi salvo:
+// até HORA_VIRADA_DO_DIA (04:00) conta para o dia anterior; depois, para o dia em curso.
+// Uma correção conta no mesmo dia do fechamento que ela substitui.
+export function diaDasVendas(ts, r, hist = null, prof = 0) {
+    if (r?.evento === 'correcao' && prof < 10) {
+        const original = hist?.[String(r.substitui)];
+        if (original) return diaDasVendas(r.substitui, original, hist, prof + 1);
+        if (/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(r.diaVendas || '')) return r.diaVendas;
+    }
     let d = new Date(Number(ts));
     // registros antigos copiavam o fechamento: a data/hora dele está em "dataFormatada"
     const m = /^([0-9]{2})\/([0-9]{2})\/([0-9]{4}) às ([0-9]{2}):([0-9]{2})/.exec(r?.dataFormatada || '');
     if (!r?.evento && m) d = new Date(+m[3], +m[2] - 1, +m[1], +m[4], +m[5]);
-    if (d.getHours() < HORA_VIRADA_DO_DIA) d = new Date(d.getFullYear(), d.getMonth(), d.getDate() - 1);
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    return diaDasVendasPelaHora(d);
 }
 
 // Quais registros do histórico são fechamentos de verdade (e contam nas vendas).
@@ -130,7 +132,7 @@ export function analisarHistorico(hist, iso = null) {
             vistos.add(quando);
             if (substituidosTs.has(ts) || substituidasDatas.has(quando)) { substituidos.add(ts); return; }
         }
-        const dia = diaDasVendas(ts, r);
+        const dia = diaDasVendas(ts, r, hist);
         if (!iso || dia === iso) validos.push({ ts, reg: r, dia });
     });
     return { validos, substituidos, idsValidos: new Set(validos.map(v => v.ts)) };

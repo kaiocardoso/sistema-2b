@@ -64,6 +64,13 @@ export function getProdutosPermitidos(posto) {
 
 export const unidade = (p) => p === 'arla_b' ? 'un' : 'L';
 
-// Fechamentos enviados da meia-noite até esta hora contam, por padrão, para o dia anterior
+// Fechamentos salvos da meia-noite até esta hora (inclusive, ex.: 04:00) contam para o dia anterior
 // (o turno que termina às 23:59 muitas vezes é registrado depois da meia-noite).
+// Depois desse horário, contam para o dia em curso.
 export const HORA_VIRADA_DO_DIA = 4;
+
+export function diaDasVendasPelaHora(data) {
+    const minutos = data.getHours() * 60 + data.getMinutes();
+    const d = minutos <= HORA_VIRADA_DO_DIA * 60 ? new Date(data.getFullYear(), data.getMonth(), data.getDate() - 1) : data;
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
