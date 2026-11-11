@@ -2,7 +2,7 @@
 // Sempre busca a versão mais nova na internet; a cópia guardada só é usada sem conexão.
 // Os dados do banco (Firebase) nunca são guardados aqui.
 
-const VERSAO = '2026-11-11-v14';
+const VERSAO = '2026-11-11-v15';
 const PREFIXO = 'postos2b:' + new URL(self.registration.scope).pathname + ':';
 const CACHE = PREFIXO + VERSAO;
 
@@ -29,8 +29,9 @@ self.addEventListener('activate', (e) => {
 self.addEventListener('fetch', (e) => {
     const req = e.request;
     if (req.method !== 'GET' || new URL(req.url).origin !== self.location.origin) return;
+    // sempre confere com o servidor se há versão nova (não usa cópia velha do navegador)
     e.respondWith(
-        fetch(req)
+        fetch(req.url, { cache: 'no-cache', credentials: 'same-origin' })
             .then(res => {
                 if (res.ok) { const copia = res.clone(); caches.open(CACHE).then(c => c.put(req, copia)); }
                 return res;
