@@ -107,11 +107,24 @@ function cartao(posto, a, aberto) {
 }
 
 // ---------- Painel do gestor ----------
+// resumo no topo da aba "Aferições e manutenção"
+export function resumoAba(qual, pendencias, titulo, detalhe) {
+    const card = $(`campo-${qual}`);
+    if (!card) return;
+    card.querySelector('strong').textContent = titulo;
+    card.querySelector('small').textContent = detalhe;
+    card.classList.toggle('alerta', pendencias > 0);
+    card.dataset.pend = pendencias;
+    const total = ['af', 'oc'].reduce((s, q) => s + (Number($(`campo-${q}`)?.dataset.pend) || 0), 0);
+    const badge = $('aba-campo-alerta');
+    badge.textContent = total; badge.classList.toggle('oculto', !total);
+}
+
 export async function carregarAfericoesGestor() {
     const caixa = $('gestor-afericoes');
     caixa.innerHTML = '<div class="esqueleto"></div><div class="esqueleto"></div>';
     const linhas = [];
-    let alertas = 0;
+    let alertas = 0, foraTotal = 0, atrasados = 0;
     for (const posto of estado.postos) {
         let afs = [];
         try { afs = await buscarAfericoes(posto, 5); } catch (e) { console.error(e); }
@@ -120,6 +133,8 @@ export async function carregarAfericoesGestor() {
         const { fora } = ultima ? contar(ultima) : { fora: 0 };
         const atrasada = !ultima || d > AFERICAO_PRAZO_DIAS;
         if (atrasada || fora) alertas++;
+        if (atrasada) atrasados++;
+        foraTotal += fora;
         linhas.push(`<details class="af-posto ${atrasada || fora ? 'alerta' : ''}">
             <summary>
                 <span><b>${esc(posto)}</b><small>${ultima ? `Última: ${dataBR(ultima.data)} (${d === 0 ? 'hoje' : d === 1 ? 'ontem' : d + ' dias atrás'}) · ${esc(ultima.responsavel || '')}` : 'Nenhuma aferição registrada'}</small></span>
@@ -135,4 +150,5 @@ export async function carregarAfericoesGestor() {
     const chip = $('gestor-af-resumo');
     chip.innerHTML = alertas ? `${icone('alerta')} ${alertas} posto(s) com pendência` : 'Tudo em dia';
     chip.className = `chip secao-resumo ${alertas ? 'chip-vermelho' : 'chip-verde'}`;
+    resumoAba('af', alertas, alertas ? `${alertas} posto(s) com pendência` : 'Tudo em dia', `${foraTotal} bico(s) fora da tolerância · ${atrasados} posto(s) sem aferir há mais de ${AFERICAO_PRAZO_DIAS} dias`);
 }

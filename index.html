@@ -297,7 +297,17 @@
                 </div>
             </div>
 
-            <section class="secao tom-verde entrar" style="--i:1" data-secao="gestor-vendas">
+            <nav class="abas-painel entrar" role="tablist">
+                <button type="button" class="aba-painel ativa" role="tab" data-aba-gestor="painel"><i data-icone="grafico"></i> Vendas e estoque</button>
+                <button type="button" class="aba-painel" role="tab" data-aba-gestor="campo"><i data-icone="check"></i> Aferições e manutenção <span id="aba-campo-alerta" class="aba-alerta oculto"></span></button>
+            </nav>
+
+            <div class="resumo-campo" data-aba="campo">
+                <div class="resumo-card" id="campo-af"><span>Aferições</span><strong>…</strong><small></small></div>
+                <div class="resumo-card" id="campo-oc"><span>Manutenção</span><strong>…</strong><small></small></div>
+            </div>
+
+            <section data-aba="painel" class="secao tom-verde entrar" style="--i:1" data-secao="gestor-vendas">
                 <button type="button" class="secao-cabeca">
                     <span class="secao-icone icone-verde"><i data-icone="grafico"></i></span>
                     <span class="secao-titulos"><strong>Vendas</strong><small>Soma dos fechamentos de turno de cada dia</small></span>
@@ -329,7 +339,7 @@
                 </div></div>
             </section>
 
-            <section class="secao tom-vermelho entrar" style="--i:2" data-secao="gestor-estoque">
+            <section data-aba="painel" class="secao tom-vermelho entrar" style="--i:2" data-secao="gestor-estoque">
                 <button type="button" class="secao-cabeca">
                     <span class="secao-icone icone-vermelho"><i data-icone="tanque"></i></span>
                     <span class="secao-titulos"><strong>Estoque dos postos</strong><small>Tanques e encerrantes em tempo real</small></span>
@@ -341,7 +351,7 @@
                 </div></div>
             </section>
 
-            <section class="secao tom-azul entrar" style="--i:3" data-secao="gestor-emprestimos">
+            <section data-aba="painel" class="secao tom-azul entrar" style="--i:3" data-secao="gestor-emprestimos">
                 <button type="button" class="secao-cabeca">
                     <span class="secao-icone icone-azul"><i data-icone="troca"></i></span>
                     <span class="secao-titulos"><strong>Empréstimos entre postos</strong><small>Remanejamentos e devoluções</small></span>
@@ -366,7 +376,7 @@
                 </div></div>
             </section>
 
-            <section class="secao tom-amarelo entrar" style="--i:4" data-secao="gestor-afericoes" data-padrao="fechada">
+            <section data-aba="campo" class="secao tom-amarelo entrar" style="--i:4" data-secao="gestor-aba-afericoes">
                 <button type="button" class="secao-cabeca">
                     <span class="secao-icone"><i data-icone="check"></i></span>
                     <span class="secao-titulos"><strong>Aferições semanais</strong><small>Última aferição de cada posto e bicos fora da tolerância</small></span>
@@ -378,7 +388,7 @@
                 </div></div>
             </section>
 
-            <section class="secao tom-cinza entrar" style="--i:4" data-secao="gestor-manutencao" data-padrao="fechada">
+            <section data-aba="campo" class="secao tom-cinza entrar" style="--i:4" data-secao="gestor-aba-manutencao">
                 <button type="button" class="secao-cabeca">
                     <span class="secao-icone"><i data-icone="alerta"></i></span>
                     <span class="secao-titulos"><strong>Manutenção e ocorrências</strong><small>Problemas em aberto em todos os postos</small></span>
@@ -396,7 +406,7 @@
                 </div></div>
             </section>
 
-            <section id="secao-log" class="secao tom-roxo entrar oculto" style="--i:4" data-secao="gestor-log" data-padrao="fechada">
+            <section data-aba="painel" id="secao-log" class="secao tom-roxo entrar oculto" style="--i:4" data-secao="gestor-log" data-padrao="fechada">
                 <button type="button" class="secao-cabeca">
                     <span class="secao-icone"><i data-icone="relogio"></i></span>
                     <span class="secao-titulos"><strong>Registro de atividades</strong><small>Quem fez o quê e quando no sistema</small></span>

@@ -14,6 +14,7 @@ import { carregarManutencaoGestor } from "./manutencao.js";
 export function abrirGestor() {
     $('tela-gestor').classList.remove('oculto');
     const admin = estado.perfil.papel === 'admin';
+    iniciarAbas();
     $('gestor-titulo').textContent = admin ? 'Administrador' : nomeBonito(estado.perfil.nome);
     $('chip-admin').classList.toggle('oculto', !admin);
     montarFormEmprestimo('form-emprestimo-gestor');
@@ -44,6 +45,19 @@ export function abrirGestor() {
 }
 
 const nomeBonito = (n) => String(n).toLowerCase().replace(/(^|\s)\S/g, l => l.toUpperCase());
+
+// ---------- Abas do painel ----------
+function mostrarAba(aba) {
+    document.querySelectorAll('[data-aba-gestor]').forEach(b => b.classList.toggle('ativa', b.dataset.abaGestor === aba));
+    document.querySelectorAll('#tela-gestor [data-aba]').forEach(el => el.classList.toggle('fora-aba', el.dataset.aba !== aba));
+    try { localStorage.setItem('postos2b:aba-gestor', aba); } catch (e) { /* sem armazenamento */ }
+}
+function iniciarAbas() {
+    document.querySelectorAll('[data-aba-gestor]').forEach(b => b.onclick = () => { mostrarAba(b.dataset.abaGestor); window.scrollTo({ top: 0, behavior: 'smooth' }); });
+    let aba = 'painel';
+    try { aba = localStorage.getItem('postos2b:aba-gestor') || 'painel'; } catch (e) { /* */ }
+    mostrarAba(aba === 'campo' ? 'campo' : 'painel');
+}
 
 // ---------- Vendas do dia escolhido + últimos dias ----------
 const hora = (ts) => new Date(Number(ts)).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });

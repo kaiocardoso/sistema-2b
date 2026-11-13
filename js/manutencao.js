@@ -3,6 +3,7 @@ import { bicosPostos } from "./config.js";
 import { estado, criarOcorrencia, atualizarOcorrencia, buscarOcorrencias, registrarLog } from "./dados.js";
 import { $, esc, aviso, comEspera, confirmar, pedirTexto } from "./util.js";
 import { icone } from "./icones.js";
+import { resumoAba } from "./afericoes.js";
 
 export const CATEGORIAS = ['Bomba / bico', 'Tanque / vazamento', 'Elétrica / iluminação', 'Sistema / computador / maquininha', 'Estrutura / pista / cobertura', 'Compressor / calibrador', 'Segurança', 'Limpeza / ambiental', 'Outros'];
 const PRIORIDADES = { alta: 'Alta', media: 'Média', baixa: 'Baixa' };
@@ -97,6 +98,8 @@ export async function carregarManutencaoGestor() {
     $('gestor-oc-abertas').innerHTML = abertos.map(x => cartao(x.posto, x.o, true)).join('') || '<div class="vazio-lista">Nenhuma ocorrência em aberto nos postos. 👍</div>';
     $('gestor-oc-resolvidas').innerHTML = resolvidos.map(x => cartao(x.posto, x.o, true)).join('') || '<div class="vazio-lista">Nenhuma ocorrência resolvida ainda.</div>';
     resumo($('gestor-oc-resumo'), abertos.length, abertos.some(x => x.o.prioridade === 'alta'));
+    const altas = abertos.filter(x => x.o.prioridade === 'alta').length, andamento = abertos.filter(x => x.o.status === 'andamento').length;
+    resumoAba('oc', abertos.length, abertos.length ? `${abertos.length} ocorrência(s) em aberto` : 'Nada em aberto', `${altas} de prioridade alta · ${andamento} em andamento`);
 }
 
 // ---------- Botões "Em andamento" / "Resolvido" ----------
