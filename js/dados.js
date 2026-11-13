@@ -1,5 +1,5 @@
 // Estado da sessão + leitura e gravação no banco
-import { db, auth, ref, set, get, push, serverTimestamp, onValue, query, orderByChild, orderByKey, equalTo, startAt, endAt, CAMINHO } from "./firebase.js";
+import { db, auth, ref, set, get, push, serverTimestamp, onValue, query, orderByChild, orderByKey, equalTo, startAt, endAt, limitToLast, CAMINHO } from "./firebase.js";
 import { configPostos, DOMINIO_LOGIN, LOGIN_ADMIN, diaDasVendasPelaHora } from "./config.js";
 
 export const estado = {
@@ -200,6 +200,18 @@ export async function anularLancamento(posto, ts, reg, motivo) {
             await set(ref(db, `${CAMINHO.dados}/${posto}`), { ...resto, enviadoPor: auth.currentUser.email, enviadoPorNome: estado.perfil.nome });
         }
     }
+}
+
+// ---------- Aferições dos bicos ----------
+export async function salvarAfericao(posto, dados) {
+    await set(push(ref(db, `${CAMINHO.afericoes}/${posto}`)), {
+        ...dados, quando: serverTimestamp(), enviadoPor: auth.currentUser.email, enviadoPorNome: estado.perfil.nome
+    });
+}
+
+export async function buscarAfericoes(posto, limite = 12) {
+    const snap = await get(query(ref(db, `${CAMINHO.afericoes}/${posto}`), orderByChild('quando'), limitToLast(limite)));
+    return Object.entries(snap.val() || {}).map(([id, r]) => ({ id, ...r })).sort((a, b) => b.quando - a.quando);
 }
 
 // ---------- Registro de atividades (log) ----------

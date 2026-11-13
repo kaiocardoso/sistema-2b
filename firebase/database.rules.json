@@ -49,6 +49,18 @@
         }
       }
     },
+    "postos_2b_afericoes": {
+      "$posto": {
+        ".read": "auth != null && auth.token.email != null && (auth.token.email === 'admin@rede2b.app' || root.child('perfis').child(auth.token.email.toLowerCase().replace('.', ',')).child('postos').child($posto).val() === true) && (root.child('perfis').child(auth.token.email.toLowerCase().replace('.', ',')).child('papel').val() === 'gerente' || root.child('perfis').child(auth.token.email.toLowerCase().replace('.', ',')).child('papel').val() === 'gestor' || auth.token.email === 'admin@rede2b.app')",
+        ".indexOn": [
+          "quando"
+        ],
+        "$id": {
+          ".write": "auth != null && auth.token.email != null && (auth.token.email === 'admin@rede2b.app' || root.child('perfis').child(auth.token.email.toLowerCase().replace('.', ',')).child('postos').child($posto).val() === true) && (root.child('perfis').child(auth.token.email.toLowerCase().replace('.', ',')).child('papel').val() === 'gerente' || auth.token.email === 'admin@rede2b.app') && !data.exists() && newData.exists()",
+          ".validate": "newData.hasChildren(['quando', 'data', 'bicos', 'enviadoPor', 'responsavel']) && newData.child('quando').val() === now && newData.child('enviadoPor').val() === auth.token.email && newData.child('data').isString() && newData.child('data').val().length === 10 && newData.child('responsavel').isString() && newData.child('responsavel').val().length <= 60"
+        }
+      }
+    },
     "postos_2b_emprestimos": {
       ".indexOn": [
         "origem",

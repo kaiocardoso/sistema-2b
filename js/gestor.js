@@ -8,6 +8,7 @@ import { vendasDoPeriodo } from "./vendas.js";
 import { icone } from "./icones.js";
 import { iniciarLog } from "./log.js";
 import { abrirHistoricoPosto } from "./historico-posto.js";
+import { carregarAfericoesGestor } from "./afericoes.js";
 
 export function abrirGestor() {
     $('tela-gestor').classList.remove('oculto');
@@ -35,6 +36,7 @@ export function abrirGestor() {
     escutarEmprestimos();
     iniciarVendas();
     atualizarVendasHoje();
+    carregarAfericoesGestor();
     // registro de atividades: só para o administrador
     if (admin) { $('secao-log').classList.remove('oculto'); iniciarLog(); }
 }

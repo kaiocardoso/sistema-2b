@@ -69,6 +69,11 @@ export const unidade = (p) => p === 'arla_b' ? 'un' : 'L';
 // Depois desse horário, contam para o dia em curso.
 export const HORA_VIRADA_DO_DIA = 4;
 
+// Aferição dos bicos: medida padrão de 20 litros. Tolerância de ±100 mL (0,5%).
+export const AFERICAO_VOLUME_L = 20;
+export const AFERICAO_TOLERANCIA_ML = 100;
+export const AFERICAO_PRAZO_DIAS = 7;
+
 export function diaDasVendasPelaHora(data) {
     const minutos = data.getHours() * 60 + data.getMinutes();
     const d = minutos <= HORA_VIRADA_DO_DIA * 60 ? new Date(data.getFullYear(), data.getMonth(), data.getDate() - 1) : data;

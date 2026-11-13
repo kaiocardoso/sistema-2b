@@ -221,6 +221,34 @@
                     <div id="gerente-pendentes" class="lista-emprestimos"></div>
                 </div></div>
             </section>
+
+            <section class="secao tom-amarelo entrar" style="--i:4" data-secao="gerente-afericoes">
+                <button type="button" class="secao-cabeca">
+                    <span class="secao-icone"><i data-icone="check"></i></span>
+                    <span class="secao-titulos"><strong>Aferições semanais</strong><small>Resultado da aferição de cada bico</small></span>
+                    <span id="gerente-af-resumo" class="chip chip-cinza secao-resumo"></span>
+                    <i data-icone="seta" class="secao-seta"></i>
+                </button>
+                <div class="secao-corpo"><div class="secao-interno">
+                    <div class="sub-secao novo-emprestimo" data-secao="gerente-nova-afericao">
+                        <button type="button" class="sub-cabeca botao-novo"><i data-icone="mais"></i> Registrar nova aferição <i data-icone="seta" class="secao-seta"></i></button>
+                        <div class="secao-corpo"><div class="secao-interno">
+                            <form id="form-afericao">
+                                <p class="formula" id="afericao-regra"></p>
+                                <div class="grade-2 af-topo">
+                                    <div><label class="rotulo" for="af-data">Data da aferição</label><input type="date" id="af-data" class="campo" required></div>
+                                    <div><label class="rotulo" for="af-responsavel">Quem fez a aferição</label><input type="text" id="af-responsavel" class="campo" maxlength="60" placeholder="Nome" required autocomplete="off"></div>
+                                </div>
+                                <div id="campos-afericao" class="grade-campos"></div>
+                                <div class="campo-af-obs"><label class="rotulo" for="af-obs">Observação (opcional)</label><input type="text" id="af-obs" class="campo" maxlength="300" placeholder="Ex.: bico 3 ajustado pelo técnico"></div>
+                                <button type="submit" class="botao botao-secundario botao-grande"><i data-icone="check"></i> Salvar aferição</button>
+                            </form>
+                        </div></div>
+                    </div>
+                    <h4 class="rotulo-lista">Últimas aferições</h4>
+                    <div id="afericoes-lista" class="af-lista"></div>
+                </div></div>
+            </section>
         </section>
 
         <!-- ================= GESTOR ================= -->
@@ -302,6 +330,18 @@
                             <div id="gestor-pagos" class="lista-emprestimos lista-suave"></div>
                         </div></div>
                     </div>
+                </div></div>
+            </section>
+
+            <section class="secao tom-amarelo entrar" style="--i:4" data-secao="gestor-afericoes" data-padrao="fechada">
+                <button type="button" class="secao-cabeca">
+                    <span class="secao-icone"><i data-icone="check"></i></span>
+                    <span class="secao-titulos"><strong>Aferições semanais</strong><small>Última aferição de cada posto e bicos fora da tolerância</small></span>
+                    <span id="gestor-af-resumo" class="chip chip-cinza secao-resumo"></span>
+                    <i data-icone="seta" class="secao-seta"></i>
+                </button>
+                <div class="secao-corpo"><div class="secao-interno">
+                    <div id="gestor-afericoes" class="af-lista"></div>
                 </div></div>
             </section>
 
