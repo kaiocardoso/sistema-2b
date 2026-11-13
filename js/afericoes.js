@@ -24,11 +24,12 @@ export function abrirAfericoesGerente() {
             <label class="rotulo" for="af-${b.id}"><span class="bico-numero">${b.id}</span> ${esc(b.produto)}</label>
             <div class="campo-com-unidade"><input type="number" inputmode="numeric" step="1" id="af-${b.id}" class="campo" placeholder="0"><span>mL</span></div>
             <small class="dica" id="af-${b.id}-sit"></small>
+            <input type="text" id="af-${b.id}-obs" class="campo campo-obs-bico" maxlength="200" placeholder="Ocorrência no bico (opcional)">
         </div>`).join('');
     $('af-data').max = hojeISO(); $('af-data').value = hojeISO();
     $('campos-afericao').oninput = (e) => {
         const caixa = e.target.closest('.afericao-bico');
-        if (!caixa) return;
+        if (!caixa || e.target.classList.contains('campo-obs-bico')) return;
         const v = e.target.value.trim();
         const s = situacao(v === '' ? null : Number(v));
         caixa.classList.toggle('af-ok', s === 'ok'); caixa.classList.toggle('af-fora', s === 'fora');
@@ -45,8 +46,11 @@ async function salvar(e) {
     const data = $('af-data').value;
     if (!responsavel) { aviso('Digite o nome de quem fez a aferição.', 'erro'); return $('af-responsavel').focus(); }
     if (!data || data > hojeISO()) { aviso('Confira a data da aferição.', 'erro'); return $('af-data').focus(); }
-    const bicos = {};
-    (bicosPostos[posto] || []).forEach(b => { const v = $(`af-${b.id}`).value.trim(); if (v !== '') bicos[b.id] = Math.round(Number(v)); });
+    const bicos = {}, ocorrencias = {};
+    (bicosPostos[posto] || []).forEach(b => {
+        const v = $(`af-${b.id}`).value.trim(); if (v !== '') bicos[b.id] = Math.round(Number(v));
+        const o = $(`af-${b.id}-obs`).value.trim().replace(/\s+/g, ' '); if (o) ocorrencias[b.id] = o.slice(0, 200);
+    });
     const n = Object.keys(bicos).length;
     if (!n) return aviso('Informe o resultado de pelo menos um bico.', 'erro');
     if (Object.values(bicos).some(v => Math.abs(v) > 2000)) return aviso('Confira os valores: use mililitros (ex.: 40 ou -60).', 'erro');
@@ -55,8 +59,8 @@ async function salvar(e) {
     if (n < total && !await confirmar('Aferição incompleta', `Foram informados ${n} de ${total} bicos. Salvar mesmo assim?`, 'Salvar')) return;
     await comEspera(e.submitter, async () => {
         try {
-            await salvarAfericao(posto, { data, responsavel, bicos, observacao: $('af-obs').value.trim().slice(0, 300) });
-            registrarLog('afericao', `Aferição de ${dataBR(data)}: ${n} bico(s) aferido(s), ${fora ? fora + ' fora da tolerância' : 'todos dentro da tolerância'}. Responsável: ${responsavel}`);
+            await salvarAfericao(posto, { data, responsavel, bicos, ...(Object.keys(ocorrencias).length ? { ocorrencias } : {}), observacao: $('af-obs').value.trim().slice(0, 300) });
+            registrarLog('afericao', `Aferição de ${dataBR(data)}: ${n} bico(s) aferido(s), ${fora ? fora + ' fora da tolerância' : 'todos dentro da tolerância'}${Object.keys(ocorrencias).length ? `, ${Object.keys(ocorrencias).length} ocorrência(s) em bicos` : ''}. Responsável: ${responsavel}`);
             aviso(fora ? `Aferição salva. Atenção: ${fora} bico(s) fora da tolerância.` : 'Aferição salva! Todos dentro da tolerância.', fora ? 'info' : 'ok');
             $('form-afericao').reset(); $('af-data').value = hojeISO();
             document.querySelectorAll('.afericao-bico').forEach(c => { c.classList.remove('af-ok', 'af-fora'); });
@@ -86,14 +90,16 @@ function resumoChip(el, ultima) {
 
 function cartao(posto, a, aberto) {
     const { total, fora } = contar(a);
+    const nOc = Object.keys(a.ocorrencias || {}).length;
     const bicos = (bicosPostos[posto] || []).map(b => {
         const v = a.bicos?.[b.id];
         const s = situacao(v);
-        return `<div class="af-linha af-${s}"><span><b>Bico ${b.id}</b> · ${esc(b.produto)}</span><strong>${s === 'sem' ? 'não aferido' : sinal(v)}</strong></div>`;
+        const oc = a.ocorrencias?.[b.id];
+        return `<div class="af-linha af-${s}"><span><b>Bico ${b.id}</b> · ${esc(b.produto)}</span><strong>${s === 'sem' ? 'não aferido' : sinal(v)}</strong></div>${oc ? `<p class="af-oc-bico">${icone('alerta')} ${esc(oc)}</p>` : ''}`;
     }).join('');
     return `<details class="af-cartao ${fora ? 'com-fora' : ''}" ${aberto ? 'open' : ''}>
         <summary>
-            <span><b>${dataBR(a.data)}</b><small>${esc(a.responsavel || '')} · ${total} bico(s)</small></span>
+            <span><b>${dataBR(a.data)}</b><small>${esc(a.responsavel || '')} · ${total} bico(s)${nOc ? ` · ${nOc} ocorrência(s)` : ''}</small></span>
             <span class="chip ${fora ? 'chip-vermelho' : 'chip-verde'}">${fora ? `${icone('alerta')} ${fora} fora` : `${icone('check')} tudo ok`}</span>
         </summary>
         <div class="af-corpo">${bicos}${a.observacao ? `<p class="af-obs"><b>Observação:</b> ${esc(a.observacao)}</p>` : ''}</div>

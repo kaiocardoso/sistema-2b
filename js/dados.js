@@ -214,6 +214,27 @@ export async function buscarAfericoes(posto, limite = 12) {
     return Object.entries(snap.val() || {}).map(([id, r]) => ({ id, ...r })).sort((a, b) => b.quando - a.quando);
 }
 
+// ---------- Manutenção e ocorrências ----------
+export async function criarOcorrencia(posto, dados) {
+    await set(push(ref(db, `${CAMINHO.manutencao}/${posto}`)), {
+        ...dados, status: 'aberto', criadoEm: serverTimestamp(),
+        criadoPor: auth.currentUser.email, criadoPorNome: String(estado.perfil.nome).slice(0, 80)
+    });
+}
+
+export async function atualizarOcorrencia(posto, ocorrencia, mudanca) {
+    const { id, ...atual } = ocorrencia;
+    await set(ref(db, `${CAMINHO.manutencao}/${posto}/${id}`), {
+        ...atual, ...mudanca, atualizadoEm: serverTimestamp(),
+        atualizadoPor: auth.currentUser.email, atualizadoPorNome: String(estado.perfil.nome).slice(0, 80)
+    });
+}
+
+export async function buscarOcorrencias(posto, limite = 100) {
+    const snap = await get(query(ref(db, `${CAMINHO.manutencao}/${posto}`), orderByChild('criadoEm'), limitToLast(limite)));
+    return Object.entries(snap.val() || {}).map(([id, r]) => ({ id, ...r }));
+}
+
 // ---------- Registro de atividades (log) ----------
 // Grava quem fez, o quê e quando (hora do servidor). Se falhar, não atrapalha a ação principal.
 export async function registrarLog(acao, detalhe, extras = {}) {

@@ -61,6 +61,54 @@
         }
       }
     },
+    "postos_2b_manutencao": {
+      "$posto": {
+        ".read": "auth != null && auth.token.email != null && (auth.token.email === 'admin@rede2b.app' || root.child('perfis').child(auth.token.email.toLowerCase().replace('.', ',')).child('postos').child($posto).val() === true) && (root.child('perfis').child(auth.token.email.toLowerCase().replace('.', ',')).child('papel').val() === 'gerente' || root.child('perfis').child(auth.token.email.toLowerCase().replace('.', ',')).child('papel').val() === 'gestor' || auth.token.email === 'admin@rede2b.app')",
+        "$id": {
+          ".write": "auth != null && auth.token.email != null && (auth.token.email === 'admin@rede2b.app' || root.child('perfis').child(auth.token.email.toLowerCase().replace('.', ',')).child('postos').child($posto).val() === true) && (root.child('perfis').child(auth.token.email.toLowerCase().replace('.', ',')).child('papel').val() === 'gerente' || root.child('perfis').child(auth.token.email.toLowerCase().replace('.', ',')).child('papel').val() === 'gestor' || auth.token.email === 'admin@rede2b.app') && newData.exists()",
+          ".validate": "newData.hasChildren(['criadoEm', 'criadoPor', 'categoria', 'descricao', 'status', 'prioridade']) && (!data.exists() || newData.hasChildren(['atualizadoEm', 'atualizadoPor']))",
+          "criadoEm": {
+            ".validate": "(!data.parent().exists() && newData.val() === now) || (data.parent().exists() && newData.val() === data.val())"
+          },
+          "criadoPor": {
+            ".validate": "(!data.parent().exists() && newData.val() === auth.token.email) || (data.parent().exists() && newData.val() === data.val())"
+          },
+          "criadoPorNome": {
+            ".validate": "(!data.parent().exists() && newData.isString() && newData.val().length <= 80) || (data.parent().exists() && newData.val() === data.val())"
+          },
+          "categoria": {
+            ".validate": "(!data.parent().exists() && newData.isString() && newData.val().length <= 40) || (data.parent().exists() && newData.val() === data.val())"
+          },
+          "bico": {
+            ".validate": "(!data.parent().exists() && newData.isString() && newData.val().length <= 10) || (data.parent().exists() && newData.val() === data.val())"
+          },
+          "descricao": {
+            ".validate": "(!data.parent().exists() && newData.isString() && newData.val().length >= 3 && newData.val().length <= 500) || (data.parent().exists() && newData.val() === data.val())"
+          },
+          "prioridade": {
+            ".validate": "newData.val() === 'baixa' || newData.val() === 'media' || newData.val() === 'alta'"
+          },
+          "status": {
+            ".validate": "newData.val() === 'aberto' || newData.val() === 'andamento' || newData.val() === 'resolvido'"
+          },
+          "solucao": {
+            ".validate": "newData.isString() && newData.val().length <= 500"
+          },
+          "atualizadoEm": {
+            ".validate": "newData.val() === now"
+          },
+          "atualizadoPor": {
+            ".validate": "newData.val() === auth.token.email"
+          },
+          "atualizadoPorNome": {
+            ".validate": "newData.isString() && newData.val().length <= 80"
+          },
+          "$outro": {
+            ".validate": false
+          }
+        }
+      }
+    },
     "postos_2b_emprestimos": {
       ".indexOn": [
         "origem",

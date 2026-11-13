@@ -9,6 +9,7 @@ import { icone } from "./icones.js";
 import { iniciarLog } from "./log.js";
 import { abrirHistoricoPosto } from "./historico-posto.js";
 import { carregarAfericoesGestor } from "./afericoes.js";
+import { carregarManutencaoGestor } from "./manutencao.js";
 
 export function abrirGestor() {
     $('tela-gestor').classList.remove('oculto');
@@ -37,6 +38,7 @@ export function abrirGestor() {
     iniciarVendas();
     atualizarVendasHoje();
     carregarAfericoesGestor();
+    carregarManutencaoGestor();
     // registro de atividades: só para o administrador
     if (admin) { $('secao-log').classList.remove('oculto'); iniciarLog(); }
 }

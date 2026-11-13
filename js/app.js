@@ -13,6 +13,7 @@ import { iniciarInstalacao, instalar } from "./instalar.js";
 import { carregarLog } from "./log.js";
 import { abrirHistoricoEstoque } from "./historico-estoque.js";
 import { abrirRelatorio } from "./relatorio.js";
+import { ativarAcoesOcorrencia, carregarManutencaoGestor } from "./manutencao.js";
 import { $, aviso, comEspera, saudacao, dataPorExtenso } from "./util.js";
 
 aplicarIcones();
@@ -148,6 +149,7 @@ document.addEventListener('click', (e) => {
     if (acao === 'atualizar-vendas') comEspera(alvo, atualizarVendasHoje);
     if (acao === 'atualizar-log') comEspera(alvo, carregarLog);
     if (acao === 'relatorio') abrirRelatorio();
+    if (acao === 'atualizar-oc') comEspera(alvo, carregarManutencaoGestor);
 });
 $('janela-historico').addEventListener('click', (e) => { if (e.target.id === 'janela-historico') fecharHistorico(); });
 document.addEventListener('keydown', (e) => { if (e.key === 'Escape') fecharHistorico(); });
@@ -159,4 +161,5 @@ window.addEventListener('offline', atualizarConexao);
 atualizarConexao();
 
 ativarAcoesEmprestimo();
+ativarAcoesOcorrencia();
 preencherOpcoesLogin();

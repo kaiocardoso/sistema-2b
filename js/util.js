@@ -114,7 +114,7 @@ export function pedirNumero(titulo, mensagem) {
 }
 
 // Janela para digitar um texto (ex.: motivo)
-export function pedirTexto(titulo, mensagem, placeholder = '') {
+export function pedirTexto(titulo, mensagem, placeholder = '', textoOk = 'Anular') {
     return new Promise((resolve) => {
         const fundo = janela(`
             <h3>${esc(titulo)}</h3>
@@ -122,7 +122,7 @@ export function pedirTexto(titulo, mensagem, placeholder = '') {
             <input type="text" class="campo" maxlength="300" placeholder="${esc(placeholder)}">
             <div class="acoes">
                 <button type="button" class="botao botao-claro" data-r="cancelar">Cancelar</button>
-                <button type="button" class="botao botao-perigo" data-r="ok">Anular</button>
+                <button type="button" class="botao ${textoOk === 'Anular' ? 'botao-perigo' : 'botao-sucesso'}" data-r="ok">${esc(textoOk)}</button>
             </div>`, (e, fechar) => {
                 if (e.target === e.currentTarget || e.target.closest('[data-r="cancelar"]')) { fechar(); resolve(null); }
                 if (e.target.closest('[data-r="ok"]')) { fechar(); resolve(input.value.trim()); }

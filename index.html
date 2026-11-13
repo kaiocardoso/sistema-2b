@@ -222,6 +222,39 @@
                 </div></div>
             </section>
 
+            <section class="secao tom-cinza entrar" style="--i:5" data-secao="gerente-manutencao">
+                <button type="button" class="secao-cabeca">
+                    <span class="secao-icone"><i data-icone="alerta"></i></span>
+                    <span class="secao-titulos"><strong>Manutenção e ocorrências</strong><small>Problemas do posto e o que foi feito</small></span>
+                    <span id="gerente-oc-resumo" class="chip chip-cinza secao-resumo"></span>
+                    <i data-icone="seta" class="secao-seta"></i>
+                </button>
+                <div class="secao-corpo"><div class="secao-interno">
+                    <div class="sub-secao novo-emprestimo" data-secao="gerente-nova-oc" data-padrao="fechada">
+                        <button type="button" class="sub-cabeca botao-novo"><i data-icone="mais"></i> Registrar problema / manutenção <i data-icone="seta" class="secao-seta"></i></button>
+                        <div class="secao-corpo"><div class="secao-interno">
+                            <form id="form-ocorrencia">
+                                <div class="grade-2 af-topo">
+                                    <div><label class="rotulo" for="oc-categoria">Tipo</label><select id="oc-categoria" class="campo"></select></div>
+                                    <div><label class="rotulo" for="oc-prioridade">Prioridade</label>
+                                        <select id="oc-prioridade" class="campo"><option value="media">Média</option><option value="alta">Alta (urgente)</option><option value="baixa">Baixa</option></select></div>
+                                </div>
+                                <div class="campo-af-obs"><label class="rotulo" for="oc-bico">Bico (se for o caso)</label><select id="oc-bico" class="campo"></select></div>
+                                <div class="campo-af-obs"><label class="rotulo" for="oc-descricao">O que está acontecendo?</label>
+                                    <textarea id="oc-descricao" class="campo" rows="3" maxlength="500" placeholder="Ex.: bico 2 vazando pela mangueira, já isolado" required></textarea></div>
+                                <button type="submit" class="botao botao-primario botao-grande"><i data-icone="check"></i> Registrar ocorrência</button>
+                            </form>
+                        </div></div>
+                    </div>
+                    <h4 class="rotulo-lista">Em aberto</h4>
+                    <div id="oc-abertas" class="oc-lista"></div>
+                    <div class="sub-secao" data-secao="gerente-oc-resolvidas" data-padrao="fechada">
+                        <button type="button" class="sub-cabeca"><i data-icone="check"></i> Resolvidas recentemente <i data-icone="seta" class="secao-seta"></i></button>
+                        <div class="secao-corpo"><div class="secao-interno"><div id="oc-resolvidas" class="oc-lista"></div></div></div>
+                    </div>
+                </div></div>
+            </section>
+
             <section class="secao tom-amarelo entrar" style="--i:4" data-secao="gerente-afericoes">
                 <button type="button" class="secao-cabeca">
                     <span class="secao-icone"><i data-icone="check"></i></span>
@@ -342,6 +375,24 @@
                 </button>
                 <div class="secao-corpo"><div class="secao-interno">
                     <div id="gestor-afericoes" class="af-lista"></div>
+                </div></div>
+            </section>
+
+            <section class="secao tom-cinza entrar" style="--i:4" data-secao="gestor-manutencao" data-padrao="fechada">
+                <button type="button" class="secao-cabeca">
+                    <span class="secao-icone"><i data-icone="alerta"></i></span>
+                    <span class="secao-titulos"><strong>Manutenção e ocorrências</strong><small>Problemas em aberto em todos os postos</small></span>
+                    <span id="gestor-oc-resumo" class="chip chip-cinza secao-resumo"></span>
+                    <i data-icone="seta" class="secao-seta"></i>
+                </button>
+                <div class="secao-corpo"><div class="secao-interno">
+                    <div class="linha-titulo"><h4 class="rotulo-lista">Em aberto (mais urgentes primeiro)</h4>
+                        <button type="button" class="botao botao-claro botao-mini" data-acao="atualizar-oc"><i data-icone="atualizar"></i> Atualizar</button></div>
+                    <div id="gestor-oc-abertas" class="oc-lista"></div>
+                    <div class="sub-secao" data-secao="gestor-oc-resolvidas" data-padrao="fechada">
+                        <button type="button" class="sub-cabeca"><i data-icone="check"></i> Resolvidas recentemente <i data-icone="seta" class="secao-seta"></i></button>
+                        <div class="secao-corpo"><div class="secao-interno"><div id="gestor-oc-resolvidas" class="oc-lista"></div></div></div>
+                    </div>
                 </div></div>
             </section>
 

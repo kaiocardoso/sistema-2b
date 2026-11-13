@@ -5,6 +5,7 @@ import { cardPosto } from "./cards.js";
 import { montarFormEmprestimo, desenharEmprestimosGerente } from "./emprestimos.js";
 import { $, num, temValor, agoraFormatado, aviso, comEspera } from "./util.js";
 import { abrirAfericoesGerente } from "./afericoes.js";
+import { abrirManutencaoGerente } from "./manutencao.js";
 
 export function abrirGerente() {
     const posto = estado.postoAtivo;
@@ -49,4 +50,5 @@ export function abrirGerente() {
     escutarDados();
     escutarEmprestimos();
     abrirAfericoesGerente();
+    abrirManutencaoGerente();
 }

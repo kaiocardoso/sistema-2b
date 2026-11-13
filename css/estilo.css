@@ -652,3 +652,34 @@ select.campo:disabled { background: #F4F0EC; color: var(--texto-2); }
 .af-linha.af-fora { background: var(--vermelho-claro); margin: 0 -8px; padding: 7px 8px; border-radius: 6px; }
 .af-linha.af-sem strong { color: var(--texto-3); font-weight: 600; font-style: italic; }
 .af-obs { font-size: .84rem; margin-top: 8px; color: var(--texto-2); }
+
+/* ---------------- Observação por bico (aferição) ---------------- */
+.campo-obs-bico { margin-top: 6px; font-size: .86rem; padding: 9px 11px; }
+.af-oc-bico { display: flex; gap: 6px; align-items: flex-start; font-size: .82rem; color: #8A4B00; background: var(--laranja-claro); border-radius: 8px; padding: 6px 8px; margin: 4px 0 6px; }
+.af-oc-bico .icone { width: 14px; height: 14px; margin-top: 2px; flex-shrink: 0; }
+
+/* ---------------- Manutenção e ocorrências ---------------- */
+textarea.campo { resize: vertical; min-height: 80px; font-family: inherit; }
+.oc-lista { display: flex; flex-direction: column; gap: 8px; }
+.oc-lista + .sub-secao { margin-top: 14px; }
+.ocorrencia { background: #fff; border: 1px solid var(--tom-borda, var(--borda)); border-left: 5px solid #C9BEB6; border-radius: 12px; padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; }
+.ocorrencia.prio-alta { border-left-color: var(--vermelho); }
+.ocorrencia.prio-media { border-left-color: var(--laranja); }
+.ocorrencia.prio-baixa { border-left-color: var(--azul); }
+.ocorrencia.st-resolvido { border-left-color: var(--verde); background: var(--fundo-2); }
+.oc-topo { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; }
+.oc-chips { display: flex; gap: 5px; flex-wrap: wrap; }
+.chip-prio-alta { background: var(--vermelho); color: #fff; }
+.chip-prio-media { background: var(--laranja-claro); color: #8A4B00; }
+.chip-prio-baixa { background: var(--azul-claro); color: var(--azul); }
+.chip-st-aberto { background: var(--vermelho-claro); color: var(--vermelho-escuro); }
+.chip-st-andamento { background: var(--amarelo-claro); color: var(--amarelo-texto); }
+.chip-st-resolvido { background: var(--verde-claro); color: var(--verde-escuro); }
+.oc-dias { font-size: .78rem; font-weight: 800; color: var(--vermelho-escuro); }
+.oc-posto { font-weight: 900; font-size: .9rem; }
+.oc-desc { font-size: .95rem; font-weight: 600; }
+.oc-solucao { font-size: .86rem; color: var(--verde-escuro); background: var(--verde-claro); border-radius: 8px; padding: 6px 9px; display: flex; gap: 5px; align-items: flex-start; }
+.oc-solucao .icone { width: 15px; height: 15px; margin-top: 2px; }
+.oc-rodape { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; border-top: 1px dashed var(--borda); padding-top: 8px; }
+.oc-rodape > span:first-child { font-size: .75rem; color: var(--texto-2); font-weight: 600; }
+.oc-acoes { display: flex; gap: 6px; }

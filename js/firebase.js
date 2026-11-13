@@ -20,5 +20,6 @@ export const CAMINHO = {
     historico: 'postos_2b_historico',
     emprestimos: 'postos_2b_emprestimos',
     log: 'postos_2b_log',
-    afericoes: 'postos_2b_afericoes'
+    afericoes: 'postos_2b_afericoes',
+    manutencao: 'postos_2b_manutencao'
 };
