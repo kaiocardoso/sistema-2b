@@ -41,6 +41,9 @@ export const cnpjPostos = {
     "12047827000130": "POSTO CARIPARE"
 };
 
+// Evolução do estoque começa neste dia (quando todos os postos já usavam o sistema)
+export const INICIO_EVOLUCAO = "2026-11-03";
+
 // Tolerância de diferença (sobra/falta) em relação à nota: 0,6%
 export const TOLERANCIA_ESTOQUE = 0.006;
 

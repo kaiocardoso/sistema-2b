@@ -58,7 +58,7 @@ function cartao(c, { mostrarPosto }) {
         ${c.transporte ? `<p class="carga-obs">${icone('caminhao')} ${esc(c.transporte)}</p>` : ''}
         ${c.obs ? `<p class="carga-obs">${icone('mensagem')} ${esc(c.obs)}</p>` : ''}
         ${rec ? `<div class="carga-recebimento">
-            <p>${icone('check')} <b>Recebida em ${dataHoraLocal(rec.data)}</b> · conferida por ${esc(rec.responsavel)} · lacres ${rec.lacres ? 'conferidos' : '<b>NÃO conferidos</b>'}</p>
+            <p>${icone('check')} <b>Recebida em ${dataHoraLocal(rec.data)}</b> · ${esc(rec.responsavel)}${rec.lacres === true ? ' · lacres conferidos' : rec.lacres === false ? ' · <b>lacres NÃO conferidos</b>' : ''}</p>
             ${conf.length ? `<ul class="carga-conf">${conf.map(linhaConferencia).join('')}</ul>` : ''}
             ${rec.obs ? `<p class="carga-obs">${icone('mensagem')} ${esc(rec.obs)}</p>` : ''}
         </div>` : ''}
@@ -159,6 +159,10 @@ function editor(r) {
         </div>${i.descricao ? `<small class="dica">${esc(i.descricao)}${i.aviso ? ' · ' + esc(i.aviso) : ''}</small>` : ''}`).join('')}</div>
         <button type="button" class="botao botao-claro botao-mini" data-rasc="mais-linha">${icone('mais')} Outro produto</button>
         <div><label class="rotulo">Observação (opcional)</label><input class="campo" data-f="obs" maxlength="300" value="${esc(r.obs || '')}"></div>
+        ${r.editando && !r.recebida ? '' : `<div class="carga-ja-recebida">
+            ${r.editando ? '' : `<label class="caixa-marcar"><input type="checkbox" data-f="jaRecebida" ${r.jaRecebida ? 'checked' : ''}> Já chegou no posto (lançar como recebida)</label>`}
+            <div class="${r.jaRecebida || r.recebida ? '' : 'oculto'}" data-bloco-recebida><label class="rotulo">Data e hora em que chegou</label><input type="datetime-local" class="campo" data-f="dataRecebida" value="${esc(r.dataRecebida || '')}"></div>
+        </div>`}
         <button type="button" class="botao botao-primario" data-rasc="lancar">${icone('check')} ${r.editando ? 'Salvar alterações' : 'Lançar carga (fica "A caminho")'}</button>
     </div>`;
 }
@@ -173,7 +177,7 @@ function desenharRascunhos() {
 function lerEditor(r) {
     const el = document.querySelector(`.carga-editor[data-rid="${r.rid}"]`);
     if (!el) return r;
-    el.querySelectorAll('[data-f]').forEach(f => { if (!f.disabled) r[f.dataset.f] = f.value.trim(); });
+    el.querySelectorAll('[data-f]').forEach(f => { if (!f.disabled) r[f.dataset.f] = f.type === 'checkbox' ? f.checked : f.value.trim(); });
     r.itens = Array.from(el.querySelectorAll('.carga-linha')).map((l, k) => ({
         ...(r.itens[k] || {}), produto: l.querySelector('[data-item="produto"]').value, litros: l.querySelector('[data-item="litros"]').value
     }));
@@ -194,6 +198,7 @@ function montar(r) {
         itens[i.produto] = (itens[i.produto] || 0) + l;
     }
     if (!Object.keys(itens).length) return { erro: 'Informe ao menos um produto com os litros.' };
+    if ((r.jaRecebida || r.recebida) && !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(r.dataRecebida || '')) return { erro: 'Informe a data e hora em que a carga chegou.' };
     const c = {
         origem: r.tipo, fornecedor: r.fornecedor.slice(0, 120), dataEmissao: r.dataEmissao, itens,
         valor: Math.max(0, Math.round(Number(String(r.valor || 0).replace(',', '.')) * 100) / 100) || 0
@@ -216,14 +221,15 @@ async function lancar(r, botao) {
             if (r.editando) {
                 const orig = acharCarga(r.posto, r.id);
                 const novo = { ...orig, ...c };
+                if (orig.recebimento && r.dataRecebida) novo.recebimento = { ...orig.recebimento, data: r.dataRecebida };
                 ['numero', 'transporte', 'obs'].forEach(k => { if (!(k in c)) delete novo[k]; });
                 await editarCarga(r.posto, novo);
                 registrarLog('carga', `Editou a carga ${c.numero ? 'NF ' + c.numero + ' ' : ''}de ${r.posto}: ${resumoItens(c.itens)}, ${reais(c.valor)}`);
                 aviso('Carga atualizada!');
             } else {
                 if (c.chave && await cargaExiste(r.posto, c.chave)) { r.duplicada = true; desenharRascunhos(); aviso('Esta nota já foi lançada para ' + r.posto + '.', 'erro'); return false; }
-                await lancarCarga(r.posto, c);
-                registrarLog('carga', `Lançou carga ${c.numero ? 'NF ' + c.numero + ' ' : ''}para ${r.posto} (${c.fornecedor}): ${resumoItens(c.itens)}, ${reais(c.valor)}`);
+                await lancarCarga(r.posto, c, r.jaRecebida ? { data: r.dataRecebida, responsavel: 'Lançada já recebida' } : null);
+                registrarLog('carga', `Lançou carga ${c.numero ? 'NF ' + c.numero + ' ' : ''}para ${r.posto} (${c.fornecedor}): ${resumoItens(c.itens)}, ${reais(c.valor)}${r.jaRecebida ? ', já recebida em ' + dataHoraLocal(r.dataRecebida) : ''}`);
                 aviso(`Carga lançada para ${r.posto}!`);
             }
             rascunhos = rascunhos.filter(x => x !== r);
@@ -243,7 +249,7 @@ async function importarArquivos(files) {
         const d = lerXML(texto, f.name);
         if (d.erro) { aviso(`${f.name}: ${d.erro}`, 'erro'); continue; }
         if (d.chave && rascunhos.some(r => r.chave === d.chave && r.posto === d.posto)) { aviso(`${f.name}: nota repetida, já está na lista.`, 'erro'); continue; }
-        const r = { ...d, rid: ++seq };
+        const r = { ...d, rid: ++seq, jaRecebida: !!$('cargas-ja-recebidas')?.checked, dataRecebida: d.dhEmi || (d.dataEmissao ? d.dataEmissao + 'T12:00' : '') };
         if (r.posto && r.chave) { try { r.duplicada = await cargaExiste(r.posto, r.chave); } catch (e) { /* confere de novo ao lançar */ } }
         rascunhos.push(r); lidos++;
     }
@@ -258,7 +264,7 @@ function abrirEdicao(c) {
     rascunhos = rascunhos.filter(r => !r.editando);
     const r = {
         rid: ++seq, editando: true, id: c.id, tipo: c.origem, posto: c.posto, fornecedor: c.fornecedor, numero: c.numero || '', dataEmissao: c.dataEmissao,
-        valor: c.valor, transporte: c.transporte || '', obs: c.obs || '', chave: c.chave, nomeArquivo: c.numero ? 'nº ' + c.numero : '',
+        valor: c.valor, transporte: c.transporte || '', obs: c.obs || '', chave: c.chave, recebida: !!c.recebimento, dataRecebida: c.recebimento?.data || '', nomeArquivo: c.numero ? 'nº ' + c.numero : '',
         itens: Object.entries(c.itens || {}).map(([produto, litros]) => ({ produto, litros }))
     };
     rascunhos.push(r);
@@ -272,7 +278,6 @@ function abrirEdicao(c) {
 // ---------- Recebimento (gerente / gestor) ----------
 function abrirRecebimento(c) {
     const prods = Object.keys(c.itens || {});
-    const atual = estado.dados[c.posto]?.valores || {};
     const agora = new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16);
     const fundo = document.createElement('div');
     fundo.className = 'janela-fundo';
@@ -285,14 +290,7 @@ function abrirRecebimento(c) {
                 <div><label class="rotulo" for="rec-data">Data e hora da descarga</label><input type="datetime-local" id="rec-data" class="campo" value="${agora}" required></div>
                 <div><label class="rotulo" for="rec-resp">Quem conferiu</label><input id="rec-resp" class="campo" maxlength="60" placeholder="Nome de quem acompanhou" required></div>
             </div>
-            <label class="rotulo">Régua antes e depois da descarga (litros)</label>
-            <div class="rec-produtos">${prods.map(p => `<div class="rec-produto">
-                <strong>${rotulosProdutos[p] || p} <small>nota: ${num(c.itens[p])} L</small></strong>
-                <div class="grade-2">
-                    <div><label class="rotulo" for="rec-antes-${p}">Antes</label><input type="number" min="0" step="any" inputmode="decimal" id="rec-antes-${p}" class="campo" data-antes="${p}" placeholder="${atual[p]?.regua !== undefined && atual[p]?.regua !== '' ? 'último: ' + num(Number(atual[p].regua)) : 'Litros'}"></div>
-                    <div><label class="rotulo" for="rec-depois-${p}">Depois</label><input type="number" min="0" step="any" inputmode="decimal" id="rec-depois-${p}" class="campo" data-depois="${p}" placeholder="Litros"></div>
-                </div></div>`).join('')}</div>
-            <ul id="rec-conferencia" class="carga-conf"></ul>
+            <div class="rec-produtos-lista">${prods.map(p => `<span class="carga-item"><small>${rotulosProdutos[p] || p}</small><b>${num(c.itens[p])} L</b></span>`).join('')}</div>
             <label class="caixa-marcar"><input type="checkbox" id="rec-lacres"> Lacres conferidos e intactos</label>
             <div><label class="rotulo" for="rec-obs">Observação (opcional)</label><input id="rec-obs" class="campo" maxlength="300" placeholder="Ex.: chegou com atraso, motorista João"></div>
             <div class="acoes">
@@ -303,25 +301,17 @@ function abrirRecebimento(c) {
     document.body.appendChild(fundo);
     const fechar = () => fundo.remove();
     fundo.addEventListener('click', (e) => { if (e.target === fundo || e.target.closest('[data-r="fechar"]')) fechar(); });
-    const ler = (attr) => Object.fromEntries(prods.map(p => [p, fundo.querySelector(`[data-${attr}="${p}"]`).value]).filter(([, v]) => v !== ''));
-    const atualizarConf = () => { $('rec-conferencia').innerHTML = conferencia(c.itens, ler('antes'), ler('depois')).map(linhaConferencia).join(''); };
-    fundo.querySelectorAll('[data-antes],[data-depois]').forEach(i => i.addEventListener('input', atualizarConf));
     $('form-recebimento').onsubmit = async (e) => {
         e.preventDefault();
         const responsavel = $('rec-resp').value.trim().replace(/\s+/g, ' ');
         if (responsavel.length < 2) return aviso('Informe quem conferiu a descarga.', 'erro');
-        const antes = ler('antes'), depois = ler('depois');
-        const numeros = (o) => Object.fromEntries(Object.entries(o).map(([p, v]) => [p, Math.max(0, Number(v))]));
         const rec = { data: $('rec-data').value.slice(0, 16), responsavel: responsavel.slice(0, 60), lacres: $('rec-lacres').checked };
         if ($('rec-obs').value.trim()) rec.obs = $('rec-obs').value.trim().slice(0, 300);
-        if (Object.keys(antes).length) rec.reguaAntes = numeros(antes);
-        if (Object.keys(depois).length) rec.reguaDepois = numeros(depois);
         if (!rec.lacres && !await confirmar('Lacres', 'Os lacres NÃO foram marcados como conferidos. Confirmar mesmo assim?', 'Confirmar')) return;
         await comEspera(e.submitter, async () => {
             try {
                 await receberCarga(c.posto, c, rec);
-                const conf = conferencia(c.itens, rec.reguaAntes, rec.reguaDepois).filter(r => r.medido !== null);
-                registrarLog('carga', `Recebeu a carga ${c.numero ? 'NF ' + c.numero + ' ' : ''}em ${c.posto} (${resumoItens(c.itens)}), conferida por ${rec.responsavel}${conf.length ? '. Régua: ' + conf.map(r => `${rotulosProdutos[r.p]} ${sinal(r.dif)} L`).join(', ') : ''}`);
+                registrarLog('carga', `Recebeu a carga ${c.numero ? 'NF ' + c.numero + ' ' : ''}em ${c.posto} (${resumoItens(c.itens)}), conferida por ${rec.responsavel}`);
                 aviso('Recebimento registrado!');
                 fechar();
                 recarregar();
@@ -337,12 +327,14 @@ export function ativarCargas() {
     document.addEventListener('change', (e) => {
         if (e.target.id === 'cargas-arquivo') { const fs = Array.from(e.target.files || []); e.target.value = ''; if (fs.length) importarArquivos(fs); }
         const ed = e.target.closest('.carga-editor');
+        if (ed && e.target.dataset.f === 'jaRecebida') ed.querySelector('[data-bloco-recebida]').classList.toggle('oculto', !e.target.checked);
+        if (e.target.id === 'cargas-ja-recebidas') rascunhos.filter(r => !r.editando).forEach(r => { lerEditor(r); r.jaRecebida = e.target.checked; reDesenhar(r); });
         if (ed && e.target.dataset.f === 'posto') { const r = rascunhos.find(x => x.rid === Number(ed.dataset.rid)); if (r) { lerEditor(r); r.aviso = ''; r.duplicada = false; reDesenhar(r); } }
     });
     document.addEventListener('click', async (e) => {
         const b = e.target.closest('[data-carga],[data-rasc],#cargas-manual,#cargas-lancar-todas');
         if (!b) return;
-        if (b.id === 'cargas-manual') { rascunhos.push({ rid: ++seq, tipo: 'manual', itens: [], dataEmissao: hojeISO() }); desenharRascunhos(); return; }
+        if (b.id === 'cargas-manual') { rascunhos.push({ rid: ++seq, tipo: 'manual', itens: [], dataEmissao: hojeISO(), jaRecebida: !!$('cargas-ja-recebidas')?.checked }); desenharRascunhos(); return; }
         if (b.id === 'cargas-lancar-todas') {
             for (const r of rascunhos.filter(x => !x.editando)) lerEditor(r);
             const erros = rascunhos.filter(r => !r.editando).map(r => montar(r).erro).filter(Boolean);

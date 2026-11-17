@@ -126,43 +126,43 @@
             ".validate": "(!data.parent().exists() && newData.val() === auth.token.email) || (data.parent().exists() && newData.val() === data.val())"
           },
           "origem": {
-            ".validate": "(auth.token.email === 'admin@rede2b.app' && newData.val() === 'nfe' || newData.val() === 'cte' || newData.val() === 'manual') || (data.exists() && newData.val() === data.val())"
+            ".validate": "(auth.token.email === 'admin@rede2b.app' && (newData.val() === 'nfe' || newData.val() === 'cte' || newData.val() === 'manual')) || (data.exists() && newData.val() === data.val())"
           },
           "chave": {
-            ".validate": "(auth.token.email === 'admin@rede2b.app' && newData.isString() && newData.val().length === 44) || (data.exists() && newData.val() === data.val())"
+            ".validate": "(auth.token.email === 'admin@rede2b.app' && (newData.isString() && newData.val().length === 44)) || (data.exists() && newData.val() === data.val())"
           },
           "chaveCTe": {
-            ".validate": "(auth.token.email === 'admin@rede2b.app' && newData.isString() && newData.val().length === 44) || (data.exists() && newData.val() === data.val())"
+            ".validate": "(auth.token.email === 'admin@rede2b.app' && (newData.isString() && newData.val().length === 44)) || (data.exists() && newData.val() === data.val())"
           },
           "numero": {
-            ".validate": "(auth.token.email === 'admin@rede2b.app' && newData.isString() && newData.val().length <= 20) || (data.exists() && newData.val() === data.val())"
+            ".validate": "(auth.token.email === 'admin@rede2b.app' && (newData.isString() && newData.val().length <= 20)) || (data.exists() && newData.val() === data.val())"
           },
           "fornecedor": {
-            ".validate": "(auth.token.email === 'admin@rede2b.app' && newData.isString() && newData.val().length <= 120) || (data.exists() && newData.val() === data.val())"
+            ".validate": "(auth.token.email === 'admin@rede2b.app' && (newData.isString() && newData.val().length <= 120)) || (data.exists() && newData.val() === data.val())"
           },
           "dataEmissao": {
-            ".validate": "(auth.token.email === 'admin@rede2b.app' && newData.isString() && newData.val().length === 10) || (data.exists() && newData.val() === data.val())"
+            ".validate": "(auth.token.email === 'admin@rede2b.app' && (newData.isString() && newData.val().length === 10)) || (data.exists() && newData.val() === data.val())"
           },
           "valor": {
-            ".validate": "(auth.token.email === 'admin@rede2b.app' && newData.isNumber() && newData.val() >= 0) || (data.exists() && newData.val() === data.val())"
+            ".validate": "(auth.token.email === 'admin@rede2b.app' && (newData.isNumber() && newData.val() >= 0)) || (data.exists() && newData.val() === data.val())"
           },
           "transporte": {
-            ".validate": "(auth.token.email === 'admin@rede2b.app' && newData.isString() && newData.val().length <= 300) || (data.exists() && newData.val() === data.val())"
+            ".validate": "(auth.token.email === 'admin@rede2b.app' && (newData.isString() && newData.val().length <= 300)) || (data.exists() && newData.val() === data.val())"
           },
           "obs": {
-            ".validate": "(auth.token.email === 'admin@rede2b.app' && newData.isString() && newData.val().length <= 300) || (data.exists() && newData.val() === data.val())"
+            ".validate": "(auth.token.email === 'admin@rede2b.app' && (newData.isString() && newData.val().length <= 300)) || (data.exists() && newData.val() === data.val())"
           },
           "itens": {
             ".validate": "newData.hasChildren()",
             "$prod": {
-              ".validate": "(auth.token.email === 'admin@rede2b.app' && newData.isNumber() && newData.val() > 0 && newData.val() < 200000) || (data.exists() && newData.val() === data.val())"
+              ".validate": "(auth.token.email === 'admin@rede2b.app' && (newData.isNumber() && newData.val() > 0 && newData.val() < 200000)) || (data.exists() && newData.val() === data.val())"
             }
           },
           "status": {
             ".validate": "newData.val() === 'a_caminho' || newData.val() === 'recebida' || (newData.val() === 'cancelada' && auth.token.email === 'admin@rede2b.app')"
           },
           "editadoEm": {
-            ".validate": "(auth.token.email === 'admin@rede2b.app' && newData.val() === now) || (data.exists() && newData.val() === data.val())"
+            ".validate": "(auth.token.email === 'admin@rede2b.app' && (newData.val() === now)) || (data.exists() && newData.val() === data.val())"
           },
           "recebimento": {
             ".validate": "auth.token.email === 'admin@rede2b.app' || newData.hasChildren(['em', 'por', 'data', 'responsavel'])",
@@ -254,6 +254,11 @@
         },
         "atualizadoPorEmail": {
           ".validate": "newData.val() === auth.token.email"
+        },
+        "devolucoes": {
+          "$ts": {
+            ".validate": "(data.exists() && newData.val() === data.val()) || (!data.exists() && $ts.matches(/^[0-9]{13}$/) && newData.isNumber() && newData.val() > 0)"
+          }
         },
         "$outro": {
           ".validate": "(data.exists() && newData.val() === data.val())"

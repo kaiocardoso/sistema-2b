@@ -11,6 +11,7 @@ import { abrirHistoricoPosto } from "./historico-posto.js";
 import { carregarAfericoesGestor } from "./afericoes.js";
 import { carregarManutencaoGestor } from "./manutencao.js";
 import { carregarCargasGestor } from "./cargas.js";
+import { carregarEvolucaoGestor } from "./evolucao.js";
 
 export function abrirGestor() {
     $('tela-gestor').classList.remove('oculto');
@@ -49,7 +50,9 @@ export function abrirGestor() {
 const nomeBonito = (n) => String(n).toLowerCase().replace(/(^|\s)\S/g, l => l.toUpperCase());
 
 // ---------- Abas do painel ----------
+let evolucaoCarregada = false;
 function mostrarAba(aba) {
+    if (aba === 'cargas' && !evolucaoCarregada) { evolucaoCarregada = true; setTimeout(carregarEvolucaoGestor, 800); }
     document.querySelectorAll('[data-aba-gestor]').forEach(b => b.classList.toggle('ativa', b.dataset.abaGestor === aba));
     document.querySelectorAll('#tela-gestor [data-aba]').forEach(el => el.classList.toggle('fora-aba', el.dataset.aba !== aba));
     try { localStorage.setItem('postos2b:aba-gestor', aba); } catch (e) { /* sem armazenamento */ }

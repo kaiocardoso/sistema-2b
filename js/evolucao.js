@@ -1,0 +1,222 @@
+// Evolução do estoque: estoque inicial + notas recebidas ± empréstimos − vendas = estoque esperado,
+// comparado com a régua dos fechamentos. Começa em INICIO_EVOLUCAO (quando todos os postos já usavam o sistema).
+import { configPostos, rotulosProdutos, getProdutosPermitidos, INICIO_EVOLUCAO, TOLERANCIA_ESTOQUE, diaDasVendasPelaHora } from "./config.js";
+import { estado, buscarHistorico, analisarHistorico, buscarCargas } from "./dados.js";
+import { produtoPelaDescricao } from "./xml-cargas.js";
+import { esc, num, temValor, hojeISO, somarDias, dataBR, limitesDoDia } from "./util.js";
+import { icone } from "./icones.js";
+
+const n = (v) => Number(v) || 0;
+const sinal = (v) => (v > 0 ? '+' : v < 0 ? '−' : '') + num(Math.abs(Math.round(v)));
+const pctTxt = (x) => (x > 0 ? '+' : x < 0 ? '−' : '') + Math.abs(x * 100).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + '%';
+const hora = (ts) => new Date(Number(ts)).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+const nomePosto = (s) => String(s || '').toUpperCase().trim().replace(/^POSTO\s+/, '');
+const mesmoPosto = (a, b) => nomePosto(a) === nomePosto(b);
+const diaDe = (ms) => diaDasVendasPelaHora(new Date(Number(ms)));
+// "2026-11-14T10:30" → dia das vendas (até 04:00 conta no dia anterior)
+const diaDaDataHora = (s) => {
+    const m = /^(\d{4})-(\d{2})-(\d{2})(?:T(\d{2}):(\d{2}))?/.exec(s || '');
+    return m ? diaDasVendasPelaHora(new Date(+m[1], +m[2] - 1, +m[3], +(m[4] || 12), +(m[5] || 0))) : '';
+};
+
+const PROD_EMPRESTIMO = { 'DIESEL S-10': 's10', 'DIESEL S-500': 's500', 'GAS. COMUM': 'comum', 'GAS. ADITIVADA': 'vpower', 'ETANOL': 'etanol' };
+const produtoEmprestimo = (txt) => PROD_EMPRESTIMO[String(txt || '').toUpperCase().trim()] || produtoPelaDescricao(txt);
+
+export const produtosEvolucao = (posto) => getProdutosPermitidos(posto).filter(p => p !== 'arla_b');
+
+// Calcula tudo de um posto no período
+export async function calcularEvolucao(posto, isoIni, isoFim = hojeISO()) {
+    if (isoIni < INICIO_EVOLUCAO) isoIni = INICIO_EVOLUCAO;
+    const produtos = produtosEvolucao(posto);
+    const [inicioBusca] = limitesDoDia(somarDias(isoIni, -5));
+    const [, fimBusca] = limitesDoDia(somarDias(isoFim, 2));
+    const [hist, cargas] = await Promise.all([buscarHistorico(posto, inicioBusca, Math.min(fimBusca, Date.now() + 60000)), buscarCargas(posto, 300)]);
+    const { validos } = analisarHistorico(hist);
+    validos.sort((a, b) => a.ts - b.ts);
+
+    const dias = [];
+    for (let d = isoIni; d <= isoFim; d = somarDias(d, 1)) dias.push(d);
+    const R = {};   // produto -> resultado
+    produtos.forEach(p => R[p] = { inicial: null, inicialDe: '', dias: {}, entradas: 0, notas: [], empEntrada: 0, empSaida: 0, devSemData: 0, vendas: 0, descargaCaixa: 0, ultimaRegua: null, ultimaReguaTs: null });
+    const D = (p, d) => R[p].dias[d] ||= { vendas: 0, entradas: 0, emp: 0, descarga: 0, regua: null, fechamentos: 0 };
+
+    // estoque inicial: régua do último fechamento antes do período; senão o "estoque inicial" do 1º fechamento
+    produtos.forEach(p => {
+        const antes = validos.filter(v => v.dia < isoIni && temValor(v.reg?.valores?.[p]?.regua));
+        if (antes.length) { const u = antes.at(-1); R[p].inicial = n(u.reg.valores[p].regua); R[p].inicialDe = `régua do fechamento de ${hora(u.ts)}`; return; }
+        const prim = validos.find(v => v.dia >= isoIni && v.dia <= isoFim && temValor(v.reg?.valores?.[p]?.inicial));
+        if (prim) { R[p].inicial = n(prim.reg.valores[p].inicial); R[p].inicialDe = `estoque inicial do 1º fechamento (${hora(prim.ts)})`; }
+    });
+
+    // vendas, descarga informada e régua do fim de cada dia (último fechamento do dia)
+    validos.forEach(({ ts, reg, dia }) => {
+        if (dia < isoIni || dia > isoFim) return;
+        produtos.forEach(p => {
+            const v = reg.valores?.[p];
+            if (!v) return;
+            const x = D(p, dia);
+            x.fechamentos++;
+            x.vendas += n(v.vendido); R[p].vendas += n(v.vendido);
+            x.descarga += n(v.descarga); R[p].descargaCaixa += n(v.descarga);
+            if (temValor(v.regua)) { x.regua = n(v.regua); R[p].ultimaRegua = n(v.regua); R[p].ultimaReguaTs = Number(ts); }
+        });
+    });
+
+    // notas recebidas (pela data e hora da descarga)
+    cargas.filter(c => c.status === 'recebida' && c.recebimento?.data).forEach(c => {
+        const dia = diaDaDataHora(c.recebimento.data);
+        if (dia < isoIni || dia > isoFim) return;
+        Object.entries(c.itens || {}).forEach(([p, l]) => {
+            if (!R[p]) return;
+            D(p, dia).entradas += n(l); R[p].entradas += n(l);
+            R[p].notas.push({ dia, litros: n(l), numero: c.numero, fornecedor: c.fornecedor });
+        });
+    });
+
+    // empréstimos: saiu do posto (−) ou entrou no posto (+); devoluções ao contrário
+    Object.values(estado.emprestimos || {}).forEach(e => {
+        const p = produtoEmprestimo(e.produto);
+        if (!p || !R[p]) return;
+        const sai = mesmoPosto(e.origem, posto), entra = mesmoPosto(e.destino, posto);
+        if (!sai && !entra) return;
+        const s = sai ? -1 : 1, vol = n(e.volume);
+        if (e.data >= isoIni && e.data <= isoFim) {
+            D(p, e.data).emp += s * vol;
+            if (s < 0) R[p].empSaida += vol; else R[p].empEntrada += vol;
+        }
+        let comData = 0;
+        Object.entries(e.devolucoes || {}).forEach(([ts, l]) => {
+            comData += n(l);
+            const dia = diaDe(ts);
+            if (dia < isoIni || dia > isoFim) return;
+            D(p, dia).emp -= s * n(l);
+            if (s < 0) R[p].empEntrada += n(l); else R[p].empSaida += n(l);
+        });
+        // devoluções antigas não têm data: entram só no total, se o empréstimo é do período
+        const semData = Math.max(0, n(e.devolvido) - comData);
+        if (semData && e.data >= isoIni && e.data <= isoFim) R[p].devSemData += -s * semData;
+    });
+
+    // estoque esperado dia a dia e diferença com a régua
+    produtos.forEach(p => {
+        const r = R[p];
+        let livro = r.inicial, difAnterior = 0, disponivelDia = r.inicial;
+        r.linhas = dias.map(d => {
+            const x = r.dias[d] || { vendas: 0, entradas: 0, emp: 0, descarga: 0, regua: null, fechamentos: 0 };
+            if (livro === null) return { d, ...x, esperado: null, difAcum: null, difDia: null };
+            const base = (disponivelDia ?? 0) + x.entradas + Math.max(0, x.emp);
+            livro += x.entradas + x.emp - x.vendas;
+            let difAcum = null, difDia = null, pctDia = null;
+            if (x.regua !== null) {
+                difAcum = x.regua - livro; difDia = difAcum - difAnterior; difAnterior = difAcum;
+                pctDia = base > 0 ? difDia / base : 0;
+                disponivelDia = x.regua;
+            } else disponivelDia = livro;
+            return { d, ...x, esperado: livro, difAcum, difDia, pctDia, okDia: pctDia === null || Math.abs(pctDia) <= TOLERANCIA_ESTOQUE };
+        });
+        r.esperado = r.inicial === null ? null : r.inicial + r.entradas + r.empEntrada - r.empSaida + r.devSemData - r.vendas;
+        r.diferenca = r.esperado === null || r.ultimaRegua === null ? null : r.ultimaRegua - r.esperado;
+        r.disponivel = (r.inicial || 0) + r.entradas + r.empEntrada;
+        r.pct = r.diferenca === null || !r.disponivel ? null : r.diferenca / r.disponivel;
+        r.ok = r.pct === null || Math.abs(r.pct) <= TOLERANCIA_ESTOQUE;
+    });
+    return { posto, isoIni, isoFim, produtos, R };
+}
+
+// ---------- Janela ----------
+function resumoProduto(p, r) {
+    const max = configPostos[r.posto]?.[p];
+    if (r.inicial === null) return `<div class="evo-produto"><div class="evo-topo"><strong>${rotulosProdutos[p]}</strong></div><p class="texto-suave">Sem fechamento com régua no período.</p></div>`;
+    const linha = (rot, v, cls = '', extra = '') => `<div class="evo-linha ${cls}"><span>${rot}${extra ? `<small>${extra}</small>` : ''}</span><b>${v}</b></div>`;
+    const chip = r.diferenca === null ? '' : `<span class="chip ${r.ok ? 'chip-verde' : 'chip-vermelho'}">${r.ok ? icone('check') : icone('alerta')} ${r.diferenca < 0 ? 'Falta' : r.diferenca > 0 ? 'Sobra' : 'Sem diferença'} ${sinal(r.diferenca)} L · ${pctTxt(r.pct)}</span>`;
+    return `<div class="evo-produto ${r.ok ? '' : 'evo-fora'}">
+        <div class="evo-topo"><strong>${rotulosProdutos[p]}</strong>${chip}</div>
+        ${linha('Estoque inicial', num(r.inicial) + ' L', '', r.inicialDe)}
+        ${linha('+ Compras recebidas', num(r.entradas) + ' L', 'evo-mais', `${r.notas.length} nota${r.notas.length !== 1 ? 's' : ''}${r.descargaCaixa ? ` · caixas informaram ${num(r.descargaCaixa)} L de descarga` : ''}`)}
+        ${r.empEntrada ? linha('+ Empréstimos recebidos / devolvidos ao posto', num(r.empEntrada) + ' L', 'evo-mais') : ''}
+        ${r.empSaida ? linha('− Emprestado / devolvido a outro posto', num(r.empSaida) + ' L', 'evo-menos') : ''}
+        ${r.devSemData ? linha('± Devoluções sem data registrada', sinal(r.devSemData) + ' L', '') : ''}
+        ${linha('− Vendas', num(r.vendas) + ' L', 'evo-menos')}
+        ${linha('= Estoque esperado', num(Math.round(r.esperado)) + ' L', 'evo-total')}
+        ${linha('Régua do último fechamento', r.ultimaRegua === null ? '–' : num(r.ultimaRegua) + ' L', 'evo-regua', r.ultimaReguaTs ? hora(r.ultimaReguaTs) + (max ? ` · ${Math.round(r.ultimaRegua / max * 100)}% do tanque` : '') : '')}
+    </div>`;
+}
+
+function tabelaProduto(p, r) {
+    if (r.inicial === null) return '';
+    const linhas = r.linhas.slice().reverse().map(l => `<tr class="${l.okDia ? '' : 'evo-dia-fora'}">
+        <td><b>${dataBR(l.d).slice(0, 5)}</b></td>
+        <td>${l.vendas ? num(l.vendas) : '–'}</td>
+        <td>${l.entradas ? num(l.entradas) : '–'}${l.descarga && l.descarga !== l.entradas ? `<small>caixa: ${num(l.descarga)}</small>` : ''}</td>
+        <td>${l.emp ? sinal(l.emp) : '–'}</td>
+        <td>${l.esperado === null ? '–' : num(Math.round(l.esperado))}</td>
+        <td>${l.regua === null ? '<small>sem fechamento</small>' : num(l.regua)}</td>
+        <td>${l.difDia === null ? '–' : `${sinal(l.difDia)}<small>${pctTxt(l.pctDia)}</small>`}</td>
+        <td>${l.difAcum === null ? '–' : sinal(l.difAcum)}</td>
+    </tr>`).join('');
+    return `<details class="evo-detalhe"><summary>${icone('seta')} Dia a dia · ${rotulosProdutos[p]}</summary>
+        <div class="tabela-rolagem"><table class="tabela-estoque tabela-evo">
+            <thead><tr><th>Dia</th><th>Vendas</th><th>Compras</th><th>Empr.</th><th>Esperado</th><th>Régua</th><th>Dif. do dia</th><th>Dif. acumulada</th></tr></thead>
+            <tbody>${linhas}</tbody></table></div></details>`;
+}
+
+export function abrirEvolucao(posto) {
+    const fundo = document.createElement('div');
+    fundo.className = 'janela-fundo janela-dinamica';
+    const hoje = hojeISO(), mes = hoje.slice(0, 8) + '01';
+    const opcoes = [[INICIO_EVOLUCAO, `Desde ${dataBR(INICIO_EVOLUCAO).slice(0, 5)} (início)`], [mes, 'Este mês'], [somarDias(hoje, -6), 'Últimos 7 dias'], [somarDias(hoje, -14), 'Últimos 15 dias']]
+        .filter(([d], i, a) => d >= INICIO_EVOLUCAO && a.findIndex(x => x[0] === d) === i);
+    fundo.innerHTML = `
+        <div class="janela janela-estoque janela-evo" role="dialog" aria-modal="true">
+            <div class="janela-topo">
+                <div><p class="saudacao-dia">Evolução do estoque</p><h2>${esc(posto)}</h2></div>
+                <button type="button" class="botao-fechar" data-fechar aria-label="Fechar">&times;</button>
+            </div>
+            <div class="historico-controle">
+                <label class="rotulo" for="evo-periodo">Período</label>
+                <select id="evo-periodo" class="campo">${opcoes.map(([d, t]) => `<option value="${d}">${t}</option>`).join('')}</select>
+            </div>
+            <p class="texto-suave evo-legenda">Estoque inicial + notas recebidas ± empréstimos − vendas = estoque esperado. A diferença para a régua é aceitável até <b>0,6%</b> do estoque disponível (inicial + recebido).</p>
+            <div class="evo-conteudo"></div>
+        </div>`;
+    document.body.appendChild(fundo);
+    const fechar = () => { fundo.classList.add('fechando'); document.removeEventListener('keydown', tecla); setTimeout(() => fundo.remove(), 200); };
+    const tecla = (e) => { if (e.key === 'Escape') fechar(); };
+    document.addEventListener('keydown', tecla);
+    fundo.addEventListener('click', (e) => { if (e.target === fundo || e.target.closest('[data-fechar]')) fechar(); });
+    const sel = fundo.querySelector('#evo-periodo');
+    const carregar = async () => {
+        const caixa = fundo.querySelector('.evo-conteudo');
+        caixa.innerHTML = '<div class="esqueleto esqueleto-grande"></div><div class="esqueleto"></div>';
+        try {
+            const ev = await calcularEvolucao(posto, sel.value);
+            const lista = ev.produtos.map(p => ({ p, r: { ...ev.R[p], posto } }));
+            caixa.innerHTML = `<p class="evo-periodo">${dataBR(ev.isoIni)} a ${dataBR(ev.isoFim)}</p>
+                <div class="evo-produtos">${lista.map(x => resumoProduto(x.p, x.r)).join('')}</div>
+                ${lista.map(x => tabelaProduto(x.p, x.r)).join('')}`;
+        } catch (e) { console.error(e); caixa.innerHTML = '<div class="vazio-lista">Não foi possível calcular a evolução.</div>'; }
+    };
+    sel.onchange = carregar;
+    carregar();
+}
+
+// ---------- Resumo de todos os postos (painel do gestor, aba Cargas) ----------
+export async function carregarEvolucaoGestor() {
+    const el = document.getElementById('gestor-evolucao');
+    if (!el) return;
+    el.innerHTML = '<div class="esqueleto"></div><div class="esqueleto"></div>';
+    const linhas = [];
+    for (const posto of estado.postos) {
+        try {
+            const ev = await calcularEvolucao(posto, INICIO_EVOLUCAO);
+            const prods = ev.produtos.filter(p => ev.R[p].diferenca !== null);
+            const fora = prods.filter(p => !ev.R[p].ok);
+            linhas.push(`<button type="button" class="evo-posto ${fora.length ? 'evo-fora' : ''}" data-evolucao-posto="${esc(posto)}">
+                <strong>${esc(posto)}</strong>
+                <span class="evo-chips">${prods.map(p => { const r = ev.R[p]; return `<span class="chip ${r.ok ? 'chip-verde' : 'chip-vermelho'}">${rotulosProdutos[p]} ${sinal(r.diferenca)} L</span>`; }).join('') || '<span class="chip chip-cinza">sem dados</span>'}</span>
+                ${icone('flecha')}
+            </button>`);
+        } catch (e) { console.error(e); linhas.push(`<div class="evo-posto"><strong>${esc(posto)}</strong><span class="chip chip-cinza">não foi possível calcular</span></div>`); }
+    }
+    el.innerHTML = linhas.join('');
+}

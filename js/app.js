@@ -15,6 +15,7 @@ import { abrirHistoricoEstoque } from "./historico-estoque.js";
 import { abrirRelatorio } from "./relatorio.js";
 import { ativarAcoesOcorrencia, carregarManutencaoGestor } from "./manutencao.js";
 import { ativarCargas } from "./cargas.js";
+import { abrirEvolucao, carregarEvolucaoGestor } from "./evolucao.js";
 import { $, aviso, comEspera, saudacao, dataPorExtenso } from "./util.js";
 
 aplicarIcones();
@@ -138,6 +139,8 @@ async function sair() {
 document.addEventListener('click', (e) => {
     const estoque = e.target.closest('[data-estoque-posto]');
     if (estoque) return abrirHistoricoEstoque(estoque.dataset.estoquePosto);
+    const evo = e.target.closest('[data-evolucao-posto]');
+    if (evo) return abrirEvolucao(evo.dataset.evolucaoPosto);
     const alvo = e.target.closest('[data-acao]');
     if (!alvo) return;
     const acao = alvo.dataset.acao;
@@ -147,6 +150,7 @@ document.addEventListener('click', (e) => {
     if (acao === 'historico-gerente') abrirHistorico(true);
     if (acao === 'historico-gestor') abrirHistorico(false);
     if (acao === 'fechar-historico') fecharHistorico();
+    if (acao === 'atualizar-evolucao') comEspera(alvo, carregarEvolucaoGestor);
     if (acao === 'atualizar-vendas') comEspera(alvo, atualizarVendasHoje);
     if (acao === 'atualizar-log') comEspera(alvo, carregarLog);
     if (acao === 'relatorio') abrirRelatorio();

@@ -316,7 +316,7 @@
             <nav class="abas-painel entrar" role="tablist">
                 <button type="button" class="aba-painel ativa" role="tab" data-aba-gestor="painel"><i data-icone="grafico"></i> Vendas e estoque</button>
                 <button type="button" class="aba-painel" role="tab" data-aba-gestor="campo"><i data-icone="check"></i> Aferições e manutenção <span id="aba-campo-alerta" class="aba-alerta oculto"></span></button>
-                <button type="button" class="aba-painel" role="tab" data-aba-gestor="cargas"><i data-icone="caminhao"></i> Cargas <span id="aba-cargas-alerta" class="aba-alerta oculto"></span></button>
+                <button type="button" class="aba-painel" role="tab" data-aba-gestor="cargas"><i data-icone="caminhao"></i> Cargas e estoque <span id="aba-cargas-alerta" class="aba-alerta oculto"></span></button>
             </nav>
 
             <div class="resumo-campo" data-aba="campo">
@@ -440,6 +440,7 @@
                                     <input type="file" id="cargas-arquivo" accept=".xml,text/xml,application/xml" multiple class="oculto">
                                     <button type="button" class="botao botao-claro" id="cargas-manual"><i data-icone="lapis"></i> Lançar manual</button>
                                 </div>
+                                <label class="caixa-marcar"><input type="checkbox" id="cargas-ja-recebidas"> Notas que já chegaram no posto (lançar como recebidas)</label>
                                 <p class="dica">Pode escolher vários arquivos de uma vez. O posto é identificado pelo CNPJ da nota. Confira os litros antes de lançar.</p>
                                 <div id="cargas-rascunhos"></div>
                                 <button type="button" class="botao botao-sucesso botao-grande oculto" id="cargas-lancar-todas"><i data-icone="check"></i> Lançar todas</button>
@@ -447,6 +448,14 @@
                         </div>
                     </div>
                     <div id="gestor-cargas-totais" class="resumo-campo"></div>
+                    <div class="sub-secao" data-secao="gestor-evolucao">
+                        <button type="button" class="sub-cabeca"><i data-icone="tanque"></i> Evolução do estoque desde 03/11 <i data-icone="seta" class="secao-seta"></i></button>
+                        <div class="secao-corpo"><div class="secao-interno">
+                            <p class="dica">Diferença entre a régua do último fechamento e o estoque esperado (inicial + notas recebidas ± empréstimos − vendas). Verde: dentro de 0,6%. Toque no posto para ver o dia a dia.</p>
+                            <div id="gestor-evolucao" class="evo-postos"></div>
+                            <button type="button" class="botao botao-claro botao-mini" data-acao="atualizar-evolucao"><i data-icone="atualizar"></i> Recalcular</button>
+                        </div></div>
+                    </div>
                     <h4 class="rotulo-lista">A caminho</h4>
                     <div id="gestor-cargas-caminho" class="oc-lista"></div>
                     <div class="sub-secao" data-secao="gestor-cargas-recebidas">

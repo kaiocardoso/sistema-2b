@@ -168,6 +168,8 @@ export async function atualizarDevolucao(id, novoDevolvido, log) {
     await set(ref(db, `${CAMINHO.emprestimos}/${id}`), {
         ...emp,
         devolvido: novoDevolvido,
+        // data de cada devolução (para a evolução do estoque)
+        ...(novoDevolvido > (Number(emp.devolvido) || 0) ? { devolucoes: { ...(emp.devolucoes || {}), [Date.now()]: novoDevolvido - (Number(emp.devolvido) || 0) } } : {}),
         status: novoDevolvido >= volume ? 'pago' : 'pendente',
         atualizadoPor: log,
         atualizadoPorEmail: auth.currentUser.email
@@ -241,9 +243,10 @@ export async function cargaExiste(posto, id) {
     return (await get(ref(db, `${CAMINHO.cargas}/${posto}/${id}`))).exists();
 }
 
-export async function lancarCarga(posto, carga) {
+export async function lancarCarga(posto, carga, recebimento = null) {
     const r = carga.chave ? ref(db, `${CAMINHO.cargas}/${posto}/${carga.chave}`) : push(ref(db, `${CAMINHO.cargas}/${posto}`));
-    await set(r, { ...carga, status: 'a_caminho', criadoEm: serverTimestamp(), criadoPor: auth.currentUser.email });
+    const extra = recebimento ? { status: 'recebida', recebimento: { ...recebimento, em: serverTimestamp(), por: auth.currentUser.email, porNome: String(estado.perfil.nome).slice(0, 80) } } : { status: 'a_caminho' };
+    await set(r, { ...carga, ...extra, criadoEm: serverTimestamp(), criadoPor: auth.currentUser.email });
     return r.key;
 }
 

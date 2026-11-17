@@ -58,6 +58,7 @@ function lerNFe(doc) {
         itens.push({ produto, litros: Math.round(litros), descricao: txt(prod, 'xProd') });
     });
     return {
+        dhEmi: (txt(doc.getElementsByTagName('ide')[0], 'dhEmi') || '').slice(0, 16),
         tipo: 'nfe', chave, numero: txt(doc.getElementsByTagName('ide')[0], 'nNF'),
         dataEmissao: dataDe(txt(doc.getElementsByTagName('ide')[0], 'dhEmi') || txt(doc.getElementsByTagName('ide')[0], 'dEmi')),
         fornecedor: txt(doc.getElementsByTagName('emit')[0], 'xNome'),
@@ -78,6 +79,7 @@ function lerCTe(doc) {
     const produto = produtoPelaDescricao(proPred);
     const diversos = /DIVERSOS/i.test(proPred) || !produto;
     return {
+        dhEmi: (txt(doc.getElementsByTagName('ide')[0], 'dhEmi') || '').slice(0, 16),
         tipo: 'cte', chave: chaveNF, chaveCTe: so(inf.getAttribute('Id')), numero: numeroDaChave(chaveNF),
         dataEmissao: dataDe(txt(doc.getElementsByTagName('ide')[0], 'dhEmi')),
         fornecedor: txt(doc.getElementsByTagName('rem')[0], 'xNome'),

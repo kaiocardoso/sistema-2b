@@ -686,7 +686,7 @@ textarea.campo { resize: vertical; min-height: 80px; font-family: inherit; }
 
 /* ---------------- Abas do painel do gestor ---------------- */
 .fora-aba { display: none !important; }
-.abas-painel { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; background: #EAE4DE; border-radius: 16px; padding: 5px; position: sticky; top: 70px; z-index: 20; box-shadow: 0 4px 14px rgba(42, 36, 33, .08); }
+.abas-painel { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; background: #EAE4DE; border-radius: 16px; padding: 5px; position: sticky; top: 70px; z-index: 20; box-shadow: 0 4px 14px rgba(42, 36, 33, .08); }
 .aba-painel { display: flex; align-items: center; justify-content: center; gap: 7px; border: 0; background: none; border-radius: 12px; padding: 12px 8px; font-family: inherit; font-weight: 800; font-size: .95rem; color: var(--texto-2); cursor: pointer; transition: all .2s var(--transicao); position: relative; }
 .aba-painel .icone { width: 19px; height: 19px; }
 .aba-painel.ativa { background: #fff; color: var(--vermelho); box-shadow: 0 2px 8px rgba(0, 0, 0, .1); }
@@ -699,7 +699,7 @@ textarea.campo { resize: vertical; min-height: 80px; font-family: inherit; }
 .resumo-card.alerta strong { color: var(--vermelho-escuro); }
 .resumo-card small { color: var(--texto-2); font-weight: 700; font-size: .8rem; }
 @media (min-width: 720px) { .resumo-campo { grid-template-columns: 1fr 1fr; } }
-@media (max-width: 480px) { .aba-painel { font-size: .82rem; padding: 10px 4px; flex-direction: column; gap: 2px; } .abas-painel { top: 60px; } }
+@media (max-width: 480px) { .aba-painel { font-size: .74rem; padding: 9px 3px; text-align: center; flex-direction: column; gap: 2px; } .abas-painel { top: 60px; } }
 
 /* ---------- Cargas de combustível ---------- */
 .carga { background: #fff; border: 1px solid var(--tom-borda, var(--borda)); border-left: 5px solid var(--amarelo, #E8B931); border-radius: 12px; padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; }
@@ -746,3 +746,40 @@ textarea.campo { resize: vertical; min-height: 80px; font-family: inherit; }
 #gestor-cargas-totais:empty { display: none; }
 #gestor-cargas-totais { margin-bottom: 12px; }
 .carga-lacres { background: #F3EFEC; color: var(--texto-2); font-weight: 600; margin-bottom: 4px; }
+
+/* ---------- Evolução do estoque ---------- */
+.botoes-estoque { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.botoes-estoque .botao-historico-estoque { margin: 0; }
+.botao-evolucao { color: var(--verde-escuro) !important; }
+.janela-evo { border-top-color: var(--verde); }
+.janela-evo h2 { color: var(--verde-escuro); }
+.evo-legenda { font-size: .82rem; margin: 6px 0 12px; }
+.evo-periodo { font-weight: 800; font-size: .85rem; color: var(--texto-2); margin-bottom: 8px; }
+.evo-produtos { display: grid; grid-template-columns: 1fr; gap: 10px; margin-bottom: 12px; }
+@media (min-width: 720px) { .evo-produtos { grid-template-columns: 1fr 1fr; } }
+.evo-produto { background: #fff; border: 1px solid var(--borda); border-left: 5px solid var(--verde); border-radius: 12px; padding: 12px; display: flex; flex-direction: column; gap: 4px; }
+.evo-produto.evo-fora { border-left-color: var(--vermelho); }
+.evo-topo { display: flex; justify-content: space-between; align-items: center; gap: 6px; flex-wrap: wrap; margin-bottom: 4px; }
+.evo-topo .chip .icone { width: 13px; height: 13px; }
+.evo-linha { display: flex; justify-content: space-between; gap: 8px; font-size: .88rem; padding: 2px 0; }
+.evo-linha span { display: flex; flex-direction: column; }
+.evo-linha small { font-size: .72rem; color: var(--texto-2); font-weight: 600; }
+.evo-linha b { white-space: nowrap; }
+.evo-mais b { color: var(--verde-escuro); }
+.evo-menos b { color: var(--vermelho-escuro); }
+.evo-total { border-top: 1px dashed var(--borda); padding-top: 6px; margin-top: 2px; font-weight: 800; }
+.evo-regua { background: #FAF6F3; border-radius: 8px; padding: 6px 8px; }
+.evo-detalhe { margin-top: 8px; border: 1px solid var(--borda); border-radius: 12px; background: #fff; }
+.evo-detalhe summary { cursor: pointer; padding: 10px 12px; font-weight: 800; font-size: .9rem; list-style: none; display: flex; gap: 6px; align-items: center; }
+.evo-detalhe summary .icone { width: 16px; height: 16px; transition: transform .2s; transform: rotate(-90deg); }
+.evo-detalhe[open] summary .icone { transform: none; }
+.tabela-evo td small { display: block; font-size: .7rem; color: var(--texto-2); }
+.tabela-evo tr.evo-dia-fora td { background: var(--vermelho-claro); }
+.evo-postos { display: flex; flex-direction: column; gap: 6px; margin-bottom: 10px; }
+.evo-posto { display: flex; align-items: center; gap: 10px; background: #fff; border: 1px solid var(--borda); border-left: 5px solid var(--verde); border-radius: 12px; padding: 10px 12px; text-align: left; font: inherit; cursor: pointer; width: 100%; }
+.evo-posto.evo-fora { border-left-color: var(--vermelho); }
+.evo-posto strong { min-width: 120px; font-size: .9rem; }
+.evo-chips { display: flex; gap: 4px; flex-wrap: wrap; flex: 1; }
+.evo-posto > .icone { width: 18px; height: 18px; color: var(--texto-2); flex: none; }
+.rec-produtos-lista { display: flex; gap: 6px; flex-wrap: wrap; }
+.carga-ja-recebida { display: flex; flex-direction: column; gap: 8px; background: #FAF6F3; border-radius: 10px; padding: 10px; }
