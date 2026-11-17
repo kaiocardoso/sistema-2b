@@ -43,6 +43,9 @@ export const cnpjPostos = {
 
 // Evolução do estoque começa neste dia (quando todos os postos já usavam o sistema)
 export const INICIO_EVOLUCAO = "2026-11-03";
+// Postos que começam depois (o 1º fechamento do Matopiba em 03/11 somou mais de um dia de vendas)
+export const INICIO_EVOLUCAO_POSTO = { "POSTO MATOPIBA": "2026-11-04" };
+export const inicioEvolucao = (posto) => INICIO_EVOLUCAO_POSTO[posto] || INICIO_EVOLUCAO;
 
 // Tolerância de diferença (sobra/falta) em relação à nota: 0,6%
 export const TOLERANCIA_ESTOQUE = 0.006;

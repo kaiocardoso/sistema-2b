@@ -796,3 +796,19 @@ textarea.campo { resize: vertical; min-height: 80px; font-family: inherit; }
 .evo-botao-rel { margin: 4px 0 2px; }
 #relevo-texto { font-family: ui-monospace, monospace; font-size: .75rem; }
 @media print { #relatorio-impressao td.fora { color: #C00; font-weight: 900; } }
+
+/* Conferência automática da evolução */
+.evo-pontos { border: 1px solid #F1D28A; background: #FFF8E6; border-radius: 12px; padding: 10px 12px; margin-bottom: 12px; font-size: .86rem; }
+.evo-pontos > summary { cursor: pointer; list-style: none; display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.evo-pontos .icone { width: 15px; height: 15px; vertical-align: -2px; }
+.evo-pontos-ok { background: var(--verde-claro); border-color: transparent; color: var(--verde-escuro); font-weight: 700; }
+.evo-grupo { margin-top: 10px; }
+.evo-grupo h5 { font-size: .8rem; text-transform: uppercase; letter-spacing: .02em; margin-bottom: 4px; display: flex; gap: 5px; align-items: center; }
+.evo-grupo-vermelho h5 { color: var(--vermelho-escuro); }
+.evo-grupo-amarelo h5 { color: var(--amarelo-texto); }
+.evo-grupo-cinza h5 { color: var(--texto-2); }
+.evo-grupo-azul h5 { color: var(--azul); }
+.evo-grupo ul { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 5px; }
+.evo-grupo li { background: #fff; border-radius: 8px; padding: 6px 9px; display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.evo-grupo li .botao { flex: none; }
+@media print { #relatorio-impressao ul.obs { margin: 2px 0 6px 16px; padding: 0; } #relatorio-impressao h3 small { font-weight: 600; color: #555; } }

@@ -1,13 +1,13 @@
 // Cargas de combustível (notas de compra)
 // Administrador lança (XML da NF-e/CT-e ou manual) → aparece "A caminho" para o posto
 // → gerente marca como recebida (data, responsável, régua antes/depois, lacres, observação).
-import { configPostos, rotulosProdutos, TOLERANCIA_ESTOQUE } from "./config.js";
+import { configPostos, rotulosProdutos, TOLERANCIA_ESTOQUE, unidade } from "./config.js";
 import { estado, cargaExiste, lancarCarga, receberCarga, editarCarga, cancelarCarga, buscarCargas, registrarLog } from "./dados.js";
 import { lerXML, numeroDaChave } from "./xml-cargas.js";
 import { $, esc, num, dataBR, hojeISO, aviso, comEspera, confirmar, pedirTexto } from "./util.js";
 import { icone } from "./icones.js";
 
-const PRODUTOS_CARGA = ['s10', 's500', 'comum', 'vpower', 'etanol', 'arla_g'];
+const PRODUTOS_CARGA = ['s10', 's500', 'comum', 'vpower', 'etanol', 'arla_g', 'arla_b'];
 const STATUS = { a_caminho: 'A caminho', recebida: 'Recebida', cancelada: 'Cancelada' };
 const ORIGEM = { nfe: 'NF-e', cte: 'CT-e', manual: 'Manual' };
 
@@ -53,7 +53,7 @@ function cartao(c, { mostrarPosto }) {
         </header>
         ${mostrarPosto ? `<p class="oc-posto">${esc(c.posto)}</p>` : ''}
         <p class="carga-fornecedor">${esc(c.fornecedor)} <small>· emitida em ${dataBR(c.dataEmissao)}</small></p>
-        <div class="carga-itens">${itens.map(([p, l]) => `<span class="carga-item"><small>${rotulosProdutos[p] || esc(p)}</small><b>${num(l)} L</b></span>`).join('')}
+        <div class="carga-itens">${itens.map(([p, l]) => `<span class="carga-item"><small>${rotulosProdutos[p] || esc(p)}</small><b>${num(l)} ${unidade(p)}</b></span>`).join('')}
             ${itens.length > 1 ? `<span class="carga-item carga-total"><small>Total</small><b>${num(totalLitros(c))} L</b></span>` : ''}</div>
         ${c.transporte ? `<p class="carga-obs">${icone('caminhao')} ${esc(c.transporte)}</p>` : ''}
         ${c.obs ? `<p class="carga-obs">${icone('mensagem')} ${esc(c.obs)}</p>` : ''}
@@ -154,7 +154,7 @@ function editor(r) {
         ${r.descricaoCarga && !r.itens.length ? `<p class="dica">A nota diz: "${esc(r.descricaoCarga)}"${r.litrosTotal ? `, total ${num(r.litrosTotal)} L` : ''}. Informe os litros de cada produto.</p>` : ''}
         <div class="carga-linhas">${linhas.map((i, k) => `<div class="carga-linha">
             <select class="campo" data-item="produto"><option value="">Produto…</option>${prods.map(p => `<option value="${p}" ${p === i.produto ? 'selected' : ''}>${rotulosProdutos[p]}</option>`).join('')}</select>
-            <input type="number" min="1" step="1" inputmode="numeric" class="campo" data-item="litros" placeholder="Litros" value="${i.litros || ''}">
+            <input type="number" min="1" step="1" inputmode="numeric" class="campo" data-item="litros" placeholder="Litros (balde: unidades)" value="${i.litros || ''}">
             ${linhas.length > 1 ? `<button type="button" class="botao-fechar" data-rasc="tirar-linha" data-k="${k}" aria-label="Tirar">&times;</button>` : '<span></span>'}
         </div>${i.descricao ? `<small class="dica">${esc(i.descricao)}${i.aviso ? ' · ' + esc(i.aviso) : ''}</small>` : ''}`).join('')}</div>
         <button type="button" class="botao botao-claro botao-mini" data-rasc="mais-linha">${icone('mais')} Outro produto</button>
@@ -255,6 +255,14 @@ async function importarArquivos(files) {
     }
     desenharRascunhos();
     if (lidos) aviso(`${lidos} arquivo${lidos > 1 ? 's' : ''} lido${lidos > 1 ? 's' : ''}. Confira e lance.`);
+}
+
+// Rascunho já preenchido (vem da conferência da evolução: "descarga sem nota")
+export function novoRascunhoCarga({ posto, produto, litros, dataRecebida }) {
+    document.querySelector('[data-aba-gestor="cargas"]')?.click();
+    rascunhos.push({ rid: ++seq, tipo: 'manual', posto, itens: [{ produto, litros }], dataEmissao: (dataRecebida || hojeISO()).slice(0, 10), jaRecebida: true, dataRecebida, aviso: 'Preenchido pela descarga do caixa. Se tiver o XML da nota, prefira importar o XML e descarte este.' });
+    desenharRascunhos();
+    setTimeout(() => document.querySelector('#cargas-rascunhos .carga-editor:last-child')?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 200);
 }
 
 // Edição (admin): abre o editor dentro de uma janela

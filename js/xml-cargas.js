@@ -11,7 +11,7 @@ const CODIGOS_ANP = {
 // Identifica o produto pela descrição (V-Power diesel S10 vai para S10; gasolina aditivada/V-Power para "vpower")
 export function produtoPelaDescricao(txt) {
     const t = String(txt || '').toUpperCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
-    if (/ARLA/.test(t)) return 'arla_g';
+    if (/ARLA|AGENTE REDUTOR|UREIA AUTOMOTIVA|AUS ?32/.test(t)) return /BALDE|GALAO|BOMBONA|\b20 ?L\b/.test(t) ? 'arla_b' : 'arla_g';
     if (/S[\s-]?10\b|S-10'|S10'/.test(t) || /DIESEL.*S\s?-?10/.test(t)) return 's10';
     if (/S[\s-]?500/.test(t)) return 's500';
     if (/DIESEL/.test(t)) return null;          // diesel sem dizer S10/S500: confirmar
@@ -53,9 +53,16 @@ function lerNFe(doc) {
         let produto = CODIGOS_ANP[txt(comb, 'cProdANP')] || produtoPelaDescricao(descricao);
         let litros = Number(txt(prod, 'qCom')) || 0;
         const un = txt(prod, 'uCom').toUpperCase();
+        const emLitros = /^(L|LT|LTS|LITRO|LITROS)$/.test(un) || /^L\b/.test(un);
+        let aviso = '';
+        if (produto === 'arla_g' || produto === 'arla_b') {
+            // ARLA: a granel em litros; balde/galão em unidades
+            if (!emLitros && /^(UN|UND|UNID|BD|BALDE|GL|GALAO|CX|PC)/.test(un)) produto = 'arla_b';
+            else if (/^KG/.test(un)) { litros = litros / 1.09; aviso = 'nota em kg: convertido para litros, confira'; }
+            else if (!emLitros && !/M3|M³/.test(un)) return;
+        } else if (!emLitros && !/M3|M³/.test(un) && !comb) return;   // item que não é combustível (ex.: frete)
         if (/M3|M³/.test(un)) litros *= 1000;
-        if (!/^L|LT|LITRO|M3|M³/.test(un) && !comb) return;   // item que não é combustível (ex.: frete)
-        itens.push({ produto, litros: Math.round(litros), descricao: txt(prod, 'xProd') });
+        itens.push({ produto, litros: Math.round(litros), descricao: txt(prod, 'xProd'), ...(aviso ? { aviso } : {}) });
     });
     return {
         dhEmi: (txt(doc.getElementsByTagName('ide')[0], 'dhEmi') || '').slice(0, 16),
