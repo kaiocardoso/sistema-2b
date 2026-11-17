@@ -123,6 +123,28 @@ export async function calcularEvolucao(posto, isoIni, isoFim = hojeISO()) {
     return { posto, isoIni, isoFim, produtos, R };
 }
 
+// Empréstimos ainda não quitados que envolvem o posto
+export function emprestimosAbertos(posto) {
+    return Object.values(estado.emprestimos || {})
+        .filter(e => e.status !== 'pago' && (mesmoPosto(e.origem, posto) || mesmoPosto(e.destino, posto)))
+        .map(e => ({ ...e, falta: Math.max(0, n(e.volume) - n(e.devolvido)), deve: mesmoPosto(e.destino, posto) }))
+        .filter(e => e.falta > 0)
+        .sort((a, b) => String(a.data || '').localeCompare(String(b.data || '')));
+}
+
+function quadroEmprestimos(posto, isoIni) {
+    const lista = emprestimosAbertos(posto);
+    if (!lista.length) return `<div class="evo-emprestimos evo-emp-vazio">${icone('check')} Nenhum empréstimo em aberto envolvendo este posto.</div>`;
+    return `<div class="evo-emprestimos">
+        <p class="evo-emp-titulo">${icone('troca')} <b>${lista.length} empréstimo${lista.length > 1 ? 's' : ''} em aberto</b>: podem explicar parte da diferença</p>
+        <ul>${lista.map(e => `<li>
+            ${e.deve ? `<b>${esc(posto)}</b> deve <b>${num(e.falta)} L</b> de ${esc(e.produto)} ao <b>${esc(e.origem)}</b>`
+                     : `<b>${esc(e.destino)}</b> deve <b>${num(e.falta)} L</b> de ${esc(e.produto)} a este posto`}
+            <small>${e.data ? 'emprestado em ' + dataBR(e.data) : 'sem data'} · ${num(n(e.volume))} L${n(e.devolvido) ? `, ${num(n(e.devolvido))} L já devolvidos` : ''} · ${e.data && e.data >= isoIni ? 'já entra na conta acima' : '<b>antes do período: não entra na conta</b>'}</small>
+        </li>`).join('')}</ul>
+    </div>`;
+}
+
 // ---------- Janela ----------
 function resumoProduto(p, r) {
     const max = configPostos[r.posto]?.[p];
@@ -192,6 +214,7 @@ export function abrirEvolucao(posto) {
             const ev = await calcularEvolucao(posto, sel.value);
             const lista = ev.produtos.map(p => ({ p, r: { ...ev.R[p], posto } }));
             caixa.innerHTML = `<p class="evo-periodo">${dataBR(ev.isoIni)} a ${dataBR(ev.isoFim)}</p>
+                ${quadroEmprestimos(posto, ev.isoIni)}
                 <div class="evo-produtos">${lista.map(x => resumoProduto(x.p, x.r)).join('')}</div>
                 ${lista.map(x => tabelaProduto(x.p, x.r)).join('')}`;
         } catch (e) { console.error(e); caixa.innerHTML = '<div class="vazio-lista">Não foi possível calcular a evolução.</div>'; }
@@ -211,9 +234,10 @@ export async function carregarEvolucaoGestor() {
             const ev = await calcularEvolucao(posto, INICIO_EVOLUCAO);
             const prods = ev.produtos.filter(p => ev.R[p].diferenca !== null);
             const fora = prods.filter(p => !ev.R[p].ok);
+            const abertos = emprestimosAbertos(posto).length;
             linhas.push(`<button type="button" class="evo-posto ${fora.length ? 'evo-fora' : ''}" data-evolucao-posto="${esc(posto)}">
                 <strong>${esc(posto)}</strong>
-                <span class="evo-chips">${prods.map(p => { const r = ev.R[p]; return `<span class="chip ${r.ok ? 'chip-verde' : 'chip-vermelho'}">${rotulosProdutos[p]} ${sinal(r.diferenca)} L</span>`; }).join('') || '<span class="chip chip-cinza">sem dados</span>'}</span>
+                <span class="evo-chips">${prods.map(p => { const r = ev.R[p]; return `<span class="chip ${r.ok ? 'chip-verde' : 'chip-vermelho'}">${rotulosProdutos[p]} ${sinal(r.diferenca)} L</span>`; }).join('') || '<span class="chip chip-cinza">sem dados</span>'}${abertos ? `<span class="chip chip-azul">${icone('troca')} ${abertos} empréstimo${abertos > 1 ? 's' : ''} em aberto</span>` : ''}</span>
                 ${icone('flecha')}
             </button>`);
         } catch (e) { console.error(e); linhas.push(`<div class="evo-posto"><strong>${esc(posto)}</strong><span class="chip chip-cinza">não foi possível calcular</span></div>`); }

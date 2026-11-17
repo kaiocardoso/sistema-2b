@@ -783,3 +783,11 @@ textarea.campo { resize: vertical; min-height: 80px; font-family: inherit; }
 .evo-posto > .icone { width: 18px; height: 18px; color: var(--texto-2); flex: none; }
 .rec-produtos-lista { display: flex; gap: 6px; flex-wrap: wrap; }
 .carga-ja-recebida { display: flex; flex-direction: column; gap: 8px; background: #FAF6F3; border-radius: 10px; padding: 10px; }
+.evo-emprestimos { background: #EAF2FD; border: 1px solid #C9DCF5; border-radius: 12px; padding: 10px 12px; margin-bottom: 12px; font-size: .86rem; }
+.evo-emprestimos .icone { width: 15px; height: 15px; vertical-align: -2px; }
+.evo-emp-titulo { margin-bottom: 6px; }
+.evo-emprestimos ul { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 6px; }
+.evo-emprestimos li { background: #fff; border-radius: 8px; padding: 6px 9px; }
+.evo-emprestimos li small { display: block; font-size: .74rem; color: var(--texto-2); margin-top: 2px; }
+.evo-emp-vazio { background: var(--verde-claro); border-color: transparent; color: var(--verde-escuro); font-weight: 700; }
+.evo-chips .chip-azul .icone { width: 13px; height: 13px; }
