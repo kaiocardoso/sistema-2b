@@ -791,3 +791,8 @@ textarea.campo { resize: vertical; min-height: 80px; font-family: inherit; }
 .evo-emprestimos li small { display: block; font-size: .74rem; color: var(--texto-2); margin-top: 2px; }
 .evo-emp-vazio { background: var(--verde-claro); border-color: transparent; color: var(--verde-escuro); font-weight: 700; }
 .evo-chips .chip-azul .icone { width: 13px; height: 13px; }
+
+.evo-acoes { display: flex; gap: 8px; flex-wrap: wrap; }
+.evo-botao-rel { margin: 4px 0 2px; }
+#relevo-texto { font-family: ui-monospace, monospace; font-size: .75rem; }
+@media print { #relatorio-impressao td.fora { color: #C00; font-weight: 900; } }

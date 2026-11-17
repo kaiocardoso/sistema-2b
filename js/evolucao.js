@@ -3,7 +3,7 @@
 import { configPostos, rotulosProdutos, getProdutosPermitidos, INICIO_EVOLUCAO, TOLERANCIA_ESTOQUE, diaDasVendasPelaHora } from "./config.js";
 import { estado, buscarHistorico, analisarHistorico, buscarCargas } from "./dados.js";
 import { produtoPelaDescricao } from "./xml-cargas.js";
-import { esc, num, temValor, hojeISO, somarDias, dataBR, limitesDoDia } from "./util.js";
+import { esc, num, temValor, hojeISO, somarDias, dataBR, limitesDoDia, aviso, comEspera } from "./util.js";
 import { icone } from "./icones.js";
 
 const n = (v) => Number(v) || 0;
@@ -198,6 +198,7 @@ export function abrirEvolucao(posto) {
                 <label class="rotulo" for="evo-periodo">Período</label>
                 <select id="evo-periodo" class="campo">${opcoes.map(([d, t]) => `<option value="${d}">${t}</option>`).join('')}</select>
             </div>
+            <button type="button" class="botao botao-claro botao-mini evo-botao-rel" data-evo-relatorio="${esc(posto)}">${icone('baixar')} Relatório deste posto (PDF ou texto)</button>
             <p class="texto-suave evo-legenda">Estoque inicial + notas recebidas ± empréstimos − vendas = estoque esperado. A diferença para a régua é aceitável até <b>0,6%</b> do estoque disponível (inicial + recebido).</p>
             <div class="evo-conteudo"></div>
         </div>`;
@@ -205,7 +206,10 @@ export function abrirEvolucao(posto) {
     const fechar = () => { fundo.classList.add('fechando'); document.removeEventListener('keydown', tecla); setTimeout(() => fundo.remove(), 200); };
     const tecla = (e) => { if (e.key === 'Escape') fechar(); };
     document.addEventListener('keydown', tecla);
-    fundo.addEventListener('click', (e) => { if (e.target === fundo || e.target.closest('[data-fechar]')) fechar(); });
+    fundo.addEventListener('click', (e) => {
+        if (e.target === fundo || e.target.closest('[data-fechar]')) fechar();
+        if (e.target.closest('[data-evo-relatorio]')) abrirRelatorioEvolucao(posto);
+    });
     const sel = fundo.querySelector('#evo-periodo');
     const carregar = async () => {
         const caixa = fundo.querySelector('.evo-conteudo');
@@ -243,4 +247,113 @@ export async function carregarEvolucaoGestor() {
         } catch (e) { console.error(e); linhas.push(`<div class="evo-posto"><strong>${esc(posto)}</strong><span class="chip chip-cinza">não foi possível calcular</span></div>`); }
     }
     el.innerHTML = linhas.join('');
+}
+
+// ---------- Relatório da evolução (impressão / PDF e texto para copiar) ----------
+async function calcularVarios(postos) {
+    const lista = [];
+    for (const posto of postos) {
+        try { lista.push(await calcularEvolucao(posto, INICIO_EVOLUCAO)); }
+        catch (e) { console.error(e); lista.push({ posto, erro: true }); }
+    }
+    return lista;
+}
+
+const statusTxt = (r) => r.diferenca === null ? 'sem dados' : r.ok ? 'OK' : (r.diferenca < 0 ? 'FALTA' : 'SOBRA') + ' acima de 0,6%';
+
+export function textoEvolucao(lista) {
+    const L = [`EVOLUÇÃO DO ESTOQUE - REDE 2B`, `Período: ${dataBR(INICIO_EVOLUCAO)} a ${dataBR(hojeISO())} · gerado em ${new Date().toLocaleString('pt-BR')}`, `Conta: inicial + compras ± empréstimos − vendas = esperado; diferença = régua − esperado (tolerância 0,6% do inicial + recebido)`, ''];
+    lista.forEach(ev => {
+        L.push(`=== ${ev.posto} ===`);
+        if (ev.erro) { L.push('não foi possível calcular', ''); return; }
+        const abertos = emprestimosAbertos(ev.posto);
+        ev.produtos.forEach(p => {
+            const r = ev.R[p];
+            if (r.inicial === null) { L.push(`${rotulosProdutos[p]}: sem fechamento com régua`); return; }
+            L.push(`${rotulosProdutos[p]}: inicial ${num(r.inicial)} (${r.inicialDe}) | compras ${num(r.entradas)} em ${r.notas.length} nota(s)${r.descargaCaixa ? ` [caixas informaram descarga ${num(r.descargaCaixa)}]` : ''} | empr. +${num(r.empEntrada)} −${num(r.empSaida)}${r.devSemData ? ` | devol. sem data ${sinal(r.devSemData)}` : ''} | vendas ${num(r.vendas)} | esperado ${num(Math.round(r.esperado))} | régua ${r.ultimaRegua === null ? '-' : num(r.ultimaRegua)}${r.ultimaReguaTs ? ' em ' + hora(r.ultimaReguaTs) : ''} | DIF ${r.diferenca === null ? '-' : sinal(r.diferenca) + ' L (' + pctTxt(r.pct) + ')'} ${statusTxt(r)}`);
+            if (r.notas.length) L.push(`   notas: ${r.notas.map(x => `${dataBR(x.dia).slice(0, 5)} ${num(x.litros)}L${x.numero ? ' NF' + x.numero : ''}`).join('; ')}`);
+            L.push(`   dia a dia (dia: vendas/compras/empr./régua/dif.dia): ${r.linhas.filter(l => l.vendas || l.entradas || l.emp || l.regua !== null).map(l => `${dataBR(l.d).slice(0, 5)}: ${num(l.vendas)}/${num(l.entradas)}/${sinal(l.emp) || 0}/${l.regua === null ? '-' : num(l.regua)}/${l.difDia === null ? '-' : sinal(l.difDia)}${l.descarga && l.descarga !== l.entradas ? ` (caixa desc. ${num(l.descarga)})` : ''}`).join(' · ')}`);
+        });
+        L.push(abertos.length ? `Empréstimos em aberto: ${abertos.map(e => `${e.deve ? ev.posto + ' deve ' + num(e.falta) + 'L de ' + e.produto + ' ao ' + e.origem : e.destino + ' deve ' + num(e.falta) + 'L de ' + e.produto + ' a este posto'} (${e.data ? dataBR(e.data) : 'sem data'}${e.data && e.data >= INICIO_EVOLUCAO ? ', na conta' : ', antes do período'})`).join('; ')}` : 'Empréstimos em aberto: nenhum');
+        L.push('');
+    });
+    return L.join('\n');
+}
+
+function imprimirEvolucao(lista) {
+    const th = (t) => `<th>${t}</th>`;
+    const blocos = lista.map(ev => {
+        if (ev.erro) return `<h3>${esc(ev.posto)}</h3><p class="obs">Não foi possível calcular.</p>`;
+        const abertos = emprestimosAbertos(ev.posto);
+        const linhas = ev.produtos.map(p => {
+            const r = ev.R[p];
+            if (r.inicial === null) return `<tr class="vazio"><td>${rotulosProdutos[p]}</td><td colspan="8">sem fechamento com régua</td></tr>`;
+            return `<tr><td>${rotulosProdutos[p]}</td><td>${num(r.inicial)}</td><td>${num(r.entradas)}</td><td>${sinal(r.empEntrada - r.empSaida + r.devSemData) || '0'}</td><td>${num(r.vendas)}</td><td><b>${num(Math.round(r.esperado))}</b></td><td>${r.ultimaRegua === null ? '–' : num(r.ultimaRegua)}</td><td><b>${r.diferenca === null ? '–' : sinal(r.diferenca)}</b></td><td class="${r.ok ? '' : 'fora'}">${r.pct === null ? '–' : pctTxt(r.pct)} ${r.ok ? '' : '⚠'}</td></tr>`;
+        }).join('');
+        const diasFora = ev.produtos.flatMap(p => (ev.R[p].linhas || []).filter(l => !l.okDia).map(l => `${dataBR(l.d).slice(0, 5)} ${rotulosProdutos[p]} ${sinal(l.difDia)} L (${pctTxt(l.pctDia)})`));
+        return `<h3>${esc(ev.posto)}</h3>
+            <table><thead><tr>${th('Produto')}${th('Inicial')}${th('Compras')}${th('Empr.')}${th('Vendas')}${th('Esperado')}${th('Régua')}${th('Diferença')}${th('%')}</tr></thead><tbody>${linhas}</tbody></table>
+            ${diasFora.length ? `<p class="obs"><b>Dias acima de 0,6%:</b> ${diasFora.map(esc).join('; ')}</p>` : ''}
+            <p class="obs"><b>Empréstimos em aberto:</b> ${abertos.length ? abertos.map(e => esc(e.deve ? `deve ${num(e.falta)} L de ${e.produto} ao ${e.origem}` : `${e.destino} deve ${num(e.falta)} L de ${e.produto}`) + ` (${e.data ? dataBR(e.data) : 'sem data'}${e.data && e.data >= INICIO_EVOLUCAO ? '' : ', fora da conta'})`).join('; ') : 'nenhum'}</p>`;
+    }).join('');
+    const area = document.createElement('div');
+    area.id = 'relatorio-impressao';
+    area.innerHTML = `
+        <header><img src="img/logo-2b.png" alt=""><div><h1>Evolução do estoque</h1><p>${lista.length > 1 ? 'Rede 2B · ' + lista.length + ' postos' : esc(lista[0].posto)}</p></div>
+            <div class="periodo"><b>Desde ${dataBR(INICIO_EVOLUCAO)}</b><span>${dataBR(INICIO_EVOLUCAO)} a ${dataBR(hojeISO())}</span></div></header>
+        <p class="obs">Estoque inicial (régua do último fechamento antes de ${dataBR(INICIO_EVOLUCAO)}) + compras recebidas ± empréstimos − vendas = estoque esperado. Diferença = régua do último fechamento − esperado. Tolerância: 0,6% do estoque disponível (inicial + recebido).</p>
+        ${blocos}
+        <footer>Gerado em ${new Date().toLocaleString('pt-BR')} por ${esc(estado.perfil.nome)} · Sistema Postos 2B</footer>`;
+    document.getElementById('relatorio-impressao')?.remove();
+    document.body.appendChild(area);
+    const img = area.querySelector('img');
+    const ir = () => { window.print(); setTimeout(() => area.remove(), 1000); };
+    if (img.complete) setTimeout(ir, 100); else { img.onload = ir; img.onerror = ir; }
+}
+
+async function copiar(texto) {
+    try { await navigator.clipboard.writeText(texto); return true; }
+    catch (e) {
+        const t = document.createElement('textarea'); t.value = texto; t.style.position = 'fixed'; t.style.opacity = '0';
+        document.body.appendChild(t); t.select();
+        let ok = false; try { ok = document.execCommand('copy'); } catch (x) { /* */ }
+        t.remove(); return ok;
+    }
+}
+
+export function abrirRelatorioEvolucao(postoFixo = null) {
+    const fundo = document.createElement('div');
+    fundo.className = 'janela-fundo janela-dinamica';
+    fundo.innerHTML = `
+        <div class="janela janela-pequena janela-relatorio" role="dialog" aria-modal="true">
+            <h3>Relatório da evolução do estoque</h3>
+            <p class="texto-suave">De ${dataBR(INICIO_EVOLUCAO)} até hoje.</p>
+            ${!postoFixo && estado.postos.length > 1 ? `<div><label class="rotulo" for="relevo-posto">Postos</label>
+                <select id="relevo-posto" class="campo"><option value="todos">Todos os ${estado.postos.length} postos</option>${estado.postos.map(p => `<option value="${esc(p)}">${esc(p)}</option>`).join('')}</select></div>` : ''}
+            <div class="rel-botoes">
+                <button type="button" class="botao botao-primario" data-relevo="pdf">Imprimir / salvar PDF</button>
+                <button type="button" class="botao botao-sucesso" data-relevo="copiar">Copiar texto (WhatsApp ou análise)</button>
+            </div>
+            <textarea id="relevo-texto" class="campo oculto" rows="8" readonly></textarea>
+            <div class="acoes"><button type="button" class="botao botao-claro" data-relevo="fechar">Fechar</button></div>
+        </div>`;
+    document.body.appendChild(fundo);
+    const fechar = () => fundo.remove();
+    fundo.addEventListener('click', async (e) => {
+        if (e.target === fundo || e.target.closest('[data-relevo="fechar"]')) return fechar();
+        const botao = e.target.closest('[data-relevo="pdf"], [data-relevo="copiar"]');
+        if (!botao) return;
+        const escolha = postoFixo || fundo.querySelector('#relevo-posto')?.value || 'todos';
+        const postos = escolha === 'todos' ? estado.postos : [escolha];
+        await comEspera(botao, async () => {
+            try {
+                const lista = await calcularVarios(postos);
+                if (botao.dataset.relevo === 'pdf') { fechar(); imprimirEvolucao(lista); return; }
+                const texto = textoEvolucao(lista);
+                const area = fundo.querySelector('#relevo-texto');
+                area.value = texto; area.classList.remove('oculto');
+                aviso(await copiar(texto) ? 'Texto copiado! É só colar.' : 'Selecione o texto abaixo e copie.');
+            } catch (err) { console.error(err); aviso('Não foi possível gerar o relatório.', 'erro'); }
+        });
+    });
 }

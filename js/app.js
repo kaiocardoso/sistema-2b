@@ -15,7 +15,7 @@ import { abrirHistoricoEstoque } from "./historico-estoque.js";
 import { abrirRelatorio } from "./relatorio.js";
 import { ativarAcoesOcorrencia, carregarManutencaoGestor } from "./manutencao.js";
 import { ativarCargas } from "./cargas.js";
-import { abrirEvolucao, carregarEvolucaoGestor } from "./evolucao.js";
+import { abrirEvolucao, carregarEvolucaoGestor, abrirRelatorioEvolucao } from "./evolucao.js";
 import { $, aviso, comEspera, saudacao, dataPorExtenso } from "./util.js";
 
 aplicarIcones();
@@ -150,6 +150,7 @@ document.addEventListener('click', (e) => {
     if (acao === 'historico-gerente') abrirHistorico(true);
     if (acao === 'historico-gestor') abrirHistorico(false);
     if (acao === 'fechar-historico') fecharHistorico();
+    if (acao === 'relatorio-evolucao') abrirRelatorioEvolucao();
     if (acao === 'atualizar-evolucao') comEspera(alvo, carregarEvolucaoGestor);
     if (acao === 'atualizar-vendas') comEspera(alvo, atualizarVendasHoje);
     if (acao === 'atualizar-log') comEspera(alvo, carregarLog);
