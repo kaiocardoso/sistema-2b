@@ -235,6 +235,41 @@ export async function buscarOcorrencias(posto, limite = 100) {
     return Object.entries(snap.val() || {}).map(([id, r]) => ({ id, ...r }));
 }
 
+// ---------- Cargas (notas de compra de combustível) ----------
+// id = chave da NF (44 dígitos) quando houver: a mesma nota não entra duas vezes
+export async function cargaExiste(posto, id) {
+    return (await get(ref(db, `${CAMINHO.cargas}/${posto}/${id}`))).exists();
+}
+
+export async function lancarCarga(posto, carga) {
+    const r = carga.chave ? ref(db, `${CAMINHO.cargas}/${posto}/${carga.chave}`) : push(ref(db, `${CAMINHO.cargas}/${posto}`));
+    await set(r, { ...carga, status: 'a_caminho', criadoEm: serverTimestamp(), criadoPor: auth.currentUser.email });
+    return r.key;
+}
+
+// Grava a carga inteira (as regras conferem o que cada um pode mudar)
+export async function gravarCarga(posto, carga) {
+    const { id, posto: _p, ...resto } = carga;
+    await set(ref(db, `${CAMINHO.cargas}/${posto}/${id}`), resto);
+}
+
+export async function receberCarga(posto, carga, rec) {
+    await gravarCarga(posto, { ...carga, status: 'recebida', recebimento: { ...rec, em: serverTimestamp(), por: auth.currentUser.email, porNome: String(estado.perfil.nome).slice(0, 80) } });
+}
+
+export async function editarCarga(posto, carga) {
+    await gravarCarga(posto, { ...carga, editadoEm: serverTimestamp() });
+}
+
+export async function cancelarCarga(posto, carga, motivo) {
+    await gravarCarga(posto, { ...carga, status: 'cancelada', cancelamento: { em: serverTimestamp(), por: auth.currentUser.email, motivo: String(motivo).slice(0, 300) } });
+}
+
+export async function buscarCargas(posto, limite = 60) {
+    const snap = await get(query(ref(db, `${CAMINHO.cargas}/${posto}`), orderByChild('criadoEm'), limitToLast(limite)));
+    return Object.entries(snap.val() || {}).map(([id, r]) => ({ id, posto, ...r }));
+}
+
 // ---------- Registro de atividades (log) ----------
 // Grava quem fez, o quê e quando (hora do servidor). Se falhar, não atrapalha a ação principal.
 export async function registrarLog(acao, detalhe, extras = {}) {

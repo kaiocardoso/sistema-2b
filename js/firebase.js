@@ -21,5 +21,5 @@ export const CAMINHO = {
     emprestimos: 'postos_2b_emprestimos',
     log: 'postos_2b_log',
     afericoes: 'postos_2b_afericoes',
-    manutencao: 'postos_2b_manutencao'
+    manutencao: 'postos_2b_manutencao', cargas: 'postos_2b_cargas'
 };

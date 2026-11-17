@@ -6,6 +6,7 @@ import { montarFormEmprestimo, desenharEmprestimosGerente } from "./emprestimos.
 import { $, num, temValor, agoraFormatado, aviso, comEspera } from "./util.js";
 import { abrirAfericoesGerente } from "./afericoes.js";
 import { abrirManutencaoGerente } from "./manutencao.js";
+import { carregarCargasGerente } from "./cargas.js";
 
 export function abrirGerente() {
     const posto = estado.postoAtivo;
@@ -51,4 +52,5 @@ export function abrirGerente() {
     escutarEmprestimos();
     abrirAfericoesGerente();
     abrirManutencaoGerente();
+    carregarCargasGerente();
 }

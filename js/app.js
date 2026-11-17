@@ -14,6 +14,7 @@ import { carregarLog } from "./log.js";
 import { abrirHistoricoEstoque } from "./historico-estoque.js";
 import { abrirRelatorio } from "./relatorio.js";
 import { ativarAcoesOcorrencia, carregarManutencaoGestor } from "./manutencao.js";
+import { ativarCargas } from "./cargas.js";
 import { $, aviso, comEspera, saudacao, dataPorExtenso } from "./util.js";
 
 aplicarIcones();
@@ -162,4 +163,5 @@ atualizarConexao();
 
 ativarAcoesEmprestimo();
 ativarAcoesOcorrencia();
+ativarCargas();
 preencherOpcoesLogin();

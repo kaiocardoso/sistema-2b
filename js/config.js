@@ -30,6 +30,20 @@ export const slugPostos = {
     "POSTO MATOPIBA": "matopiba", "POSTO FLEX": "flex", "POSTO DIVISA": "divisa", "POSTO URUCUIA": "urucuia"
 };
 
+// CNPJ de cada posto (para as notas de compra irem para o posto certo)
+export const cnpjPostos = {
+    "14450357000186": "POSTO DIVISA",
+    "28906297000259": "POSTO URUCUIA",
+    "28906297000178": "NOSSO POSTO",
+    "09031706000195": "POSTO FLEX",
+    "42019096000180": "POSTO MATOPIBA",
+    "12047778000135": "GOMES SERPA",
+    "12047827000130": "POSTO CARIPARE"
+};
+
+// Tolerância de diferença (sobra/falta) em relação à nota: 0,6%
+export const TOLERANCIA_ESTOQUE = 0.006;
+
 // Capacidade dos tanques (litros). arla_b = balde, contado em unidades.
 export const configPostos = {
     "GOMES SERPA": { comum: 10000, s500: 10000, s10: 10000 },

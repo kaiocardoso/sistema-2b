@@ -189,6 +189,22 @@
                 </div></div>
             </section>
 
+            <section class="secao tom-verde entrar" style="--i:2" data-secao="gerente-cargas">
+                <button type="button" class="secao-cabeca">
+                    <span class="secao-icone"><i data-icone="caminhao"></i></span>
+                    <span class="secao-titulos"><strong>Cargas a caminho</strong><small>Combustível comprado para o posto: marque quando chegar</small></span>
+                    <span id="gerente-cargas-resumo" class="chip chip-cinza secao-resumo"></span>
+                    <i data-icone="seta" class="secao-seta"></i>
+                </button>
+                <div class="secao-corpo"><div class="secao-interno">
+                    <div id="cargas-caminho" class="oc-lista"></div>
+                    <div class="sub-secao" data-secao="gerente-cargas-recebidas" data-padrao="fechada">
+                        <button type="button" class="sub-cabeca"><i data-icone="check"></i> Recebidas recentemente <i data-icone="seta" class="secao-seta"></i></button>
+                        <div class="secao-corpo"><div class="secao-interno"><div id="cargas-recebidas" class="oc-lista"></div></div></div>
+                    </div>
+                </div></div>
+            </section>
+
             <section class="secao tom-roxo entrar" style="--i:2" data-secao="gerente-rapido" data-padrao="fechada">
                 <button type="button" class="secao-cabeca">
                     <span class="secao-icone icone-amarelo"><i data-icone="raio"></i></span>
@@ -300,6 +316,7 @@
             <nav class="abas-painel entrar" role="tablist">
                 <button type="button" class="aba-painel ativa" role="tab" data-aba-gestor="painel"><i data-icone="grafico"></i> Vendas e estoque</button>
                 <button type="button" class="aba-painel" role="tab" data-aba-gestor="campo"><i data-icone="check"></i> Aferições e manutenção <span id="aba-campo-alerta" class="aba-alerta oculto"></span></button>
+                <button type="button" class="aba-painel" role="tab" data-aba-gestor="cargas"><i data-icone="caminhao"></i> Cargas <span id="aba-cargas-alerta" class="aba-alerta oculto"></span></button>
             </nav>
 
             <div class="resumo-campo" data-aba="campo">
@@ -402,6 +419,43 @@
                     <div class="sub-secao" data-secao="gestor-oc-resolvidas" data-padrao="fechada">
                         <button type="button" class="sub-cabeca"><i data-icone="check"></i> Resolvidas recentemente <i data-icone="seta" class="secao-seta"></i></button>
                         <div class="secao-corpo"><div class="secao-interno"><div id="gestor-oc-resolvidas" class="oc-lista"></div></div></div>
+                    </div>
+                </div></div>
+            </section>
+
+            <section data-aba="cargas" class="secao tom-verde entrar" style="--i:1" data-secao="gestor-cargas">
+                <button type="button" class="secao-cabeca">
+                    <span class="secao-icone"><i data-icone="caminhao"></i></span>
+                    <span class="secao-titulos"><strong>Cargas de combustível</strong><small>Notas de compra: a caminho e recebidas</small></span>
+                    <span id="gestor-cargas-resumo" class="chip chip-cinza secao-resumo"></span>
+                    <i data-icone="seta" class="secao-seta"></i>
+                </button>
+                <div class="secao-corpo"><div class="secao-interno">
+                    <div id="cargas-admin" class="oculto">
+                        <div class="sub-secao novo-emprestimo" data-secao="gestor-lancar-carga">
+                            <button type="button" class="sub-cabeca botao-novo"><i data-icone="mais"></i> Lançar carga (XML ou manual) <i data-icone="seta" class="secao-seta"></i></button>
+                            <div class="secao-corpo"><div class="secao-interno">
+                                <div class="cargas-importar">
+                                    <label class="botao botao-primario" for="cargas-arquivo"><i data-icone="documento"></i> Importar XML (NF-e ou CT-e)</label>
+                                    <input type="file" id="cargas-arquivo" accept=".xml,text/xml,application/xml" multiple class="oculto">
+                                    <button type="button" class="botao botao-claro" id="cargas-manual"><i data-icone="lapis"></i> Lançar manual</button>
+                                </div>
+                                <p class="dica">Pode escolher vários arquivos de uma vez. O posto é identificado pelo CNPJ da nota. Confira os litros antes de lançar.</p>
+                                <div id="cargas-rascunhos"></div>
+                                <button type="button" class="botao botao-sucesso botao-grande oculto" id="cargas-lancar-todas"><i data-icone="check"></i> Lançar todas</button>
+                            </div></div>
+                        </div>
+                    </div>
+                    <div id="gestor-cargas-totais" class="resumo-campo"></div>
+                    <h4 class="rotulo-lista">A caminho</h4>
+                    <div id="gestor-cargas-caminho" class="oc-lista"></div>
+                    <div class="sub-secao" data-secao="gestor-cargas-recebidas">
+                        <button type="button" class="sub-cabeca"><i data-icone="check"></i> Recebidas <i data-icone="seta" class="secao-seta"></i></button>
+                        <div class="secao-corpo"><div class="secao-interno"><div id="gestor-cargas-recebidas" class="oc-lista"></div></div></div>
+                    </div>
+                    <div class="sub-secao" data-secao="gestor-cargas-canceladas" data-padrao="fechada">
+                        <button type="button" class="sub-cabeca"><i data-icone="alerta"></i> Canceladas <i data-icone="seta" class="secao-seta"></i></button>
+                        <div class="secao-corpo"><div class="secao-interno"><div id="gestor-cargas-canceladas" class="oc-lista"></div></div></div>
                     </div>
                 </div></div>
             </section>

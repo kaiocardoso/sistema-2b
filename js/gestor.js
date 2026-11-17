@@ -10,6 +10,7 @@ import { iniciarLog } from "./log.js";
 import { abrirHistoricoPosto } from "./historico-posto.js";
 import { carregarAfericoesGestor } from "./afericoes.js";
 import { carregarManutencaoGestor } from "./manutencao.js";
+import { carregarCargasGestor } from "./cargas.js";
 
 export function abrirGestor() {
     $('tela-gestor').classList.remove('oculto');
@@ -40,6 +41,7 @@ export function abrirGestor() {
     atualizarVendasHoje();
     carregarAfericoesGestor();
     carregarManutencaoGestor();
+    carregarCargasGestor();
     // registro de atividades: só para o administrador
     if (admin) { $('secao-log').classList.remove('oculto'); iniciarLog(); }
 }
@@ -56,7 +58,7 @@ function iniciarAbas() {
     document.querySelectorAll('[data-aba-gestor]').forEach(b => b.onclick = () => { mostrarAba(b.dataset.abaGestor); window.scrollTo({ top: 0, behavior: 'smooth' }); });
     let aba = 'painel';
     try { aba = localStorage.getItem('postos2b:aba-gestor') || 'painel'; } catch (e) { /* */ }
-    mostrarAba(aba === 'campo' ? 'campo' : 'painel');
+    mostrarAba(['campo', 'cargas'].includes(aba) ? aba : 'painel');
 }
 
 // ---------- Vendas do dia escolhido + últimos dias ----------
