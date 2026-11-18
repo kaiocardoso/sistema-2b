@@ -39,9 +39,10 @@ function janelaTurno(n, ref) {
     const passados = cands.filter(c => c.fim <= ref + 2 * H);
     return passados.length ? passados.at(-1) : cands.sort((a, b) => Math.abs(ref - a.fim) - Math.abs(ref - b.fim))[0];
 }
-// Turno que está sendo fechado: o que terminou mais recentemente (ou termina em até 2 horas)
+// Turno que está sendo fechado: o que contém "uma hora atrás" (fecha no fim do turno, um pouco antes ou depois)
 function turnoProvavel(ref) {
-    return TURNOS.map(t => ({ n: t.n, fim: janelaTurno(t.n, ref).fim })).sort((a, b) => b.fim - a.fim)[0].n;
+    const h = new Date(ref - H).getHours();
+    return (TURNOS.find(t => h >= t.ini && h < t.fim) || TURNOS[0]).n;
 }
 const msDe = (s) => { const m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/.exec(s || ''); return m ? new Date(+m[1], +m[2] - 1, +m[3], +m[4], +m[5]).getTime() : 0; };
 
@@ -65,7 +66,13 @@ function atualizarDescargas(forcar = false) {
     if (!$('turno-fechamento')?.value) return;
     const ref = correcao ? Number(correcao.ts) : Date.now();
     const n = Number($('turno-fechamento').value);
-    const { ini, fim } = janelaTurno(n, ref);
+    // Desde o último fechamento do posto até agora (se não houver fechamento recente, usa o horário do turno)
+    let { ini, fim } = janelaTurno(n, ref);
+    if (!correcao && ultimoFechamento) {
+        const { ts, reg } = ultimoFechamento;
+        ini = reg?.evento === 'correcao' && reg.substitui ? Number(reg.substitui) : Number(ts);
+        fim = Date.now() + 60000;
+    }
     const soma = {};
     cargasPosto.forEach(d => {
         const ms = msDe(d.data);
@@ -239,6 +246,7 @@ async function carregarUltimoFechamento() {
         ultimoFechamento = null;
     }
     desenharUltimoFechamento();
+    atualizarDescargas();
     caixa.classList.remove('oculto');
 }
 
