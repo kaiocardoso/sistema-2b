@@ -41,6 +41,14 @@ export const cnpjPostos = {
     "12047827000130": "POSTO CARIPARE"
 };
 
+// Turnos (hora de início e de fim). A descarga do fechamento vem das cargas registradas nesse horário.
+export const TURNOS = [
+    { n: 1, ini: 0, fim: 6 },
+    { n: 2, ini: 6, fim: 14 },
+    { n: 3, ini: 14, fim: 22 },
+    { n: 4, ini: 22, fim: 24 }
+];
+
 // Evolução do estoque começa neste dia (quando todos os postos já usavam o sistema)
 export const INICIO_EVOLUCAO = "2026-11-03";
 // Postos que começam depois (o 1º fechamento do Matopiba em 03/11 somou mais de um dia de vendas)

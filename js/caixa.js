@@ -1,6 +1,6 @@
 // Tela do caixa / pista: encerrantes e fechamento de turno
-import { bicosPostos, rotulosProdutos, getProdutosPermitidos, unidade, HORA_VIRADA_DO_DIA, diaDasVendasPelaHora } from "./config.js";
-import { estado, salvarPosto, escutarDados, buscarHistorico, analisarHistorico, registrarLog } from "./dados.js";
+import { bicosPostos, rotulosProdutos, getProdutosPermitidos, unidade, HORA_VIRADA_DO_DIA, diaDasVendasPelaHora, TURNOS } from "./config.js";
+import { estado, salvarPosto, escutarDados, buscarHistorico, analisarHistorico, registrarLog, buscarCargas } from "./dados.js";
 import { $, esc, num, temValor, agoraFormatado, aviso, comEspera, hojeISO, dataBR, diaDaSemana } from "./util.js";
 import { icone } from "./icones.js";
 import { abrirSecao } from "./secoes.js";
@@ -22,6 +22,75 @@ export function abrirCaixa() {
     estado.aoMudarDados = (p) => { if (p === posto) desenharReferencia(); };
     escutarDados();
     carregarUltimoFechamento();
+    carregarCargasTurno();
+    clearInterval(relogioCargas);
+    relogioCargas = setInterval(carregarCargasTurno, 120000);
+}
+
+// ---------- Descarga do turno: vem das cargas registradas pelo gerente ----------
+let cargasPosto = [], relogioCargas = null, erroCargas = false;
+const H = 3600000;
+const meiaNoite = (ms, dias = 0) => { const d = new Date(ms); return new Date(d.getFullYear(), d.getMonth(), d.getDate() + dias).getTime(); };
+const nomeTurno = (t) => `Turno ${t.n} · ${String(t.ini).padStart(2, '0')}h às ${String(t.fim % 24).padStart(2, '0')}h`;
+// Janela do turno: a mais recente que já terminou (ou termina em até 2 horas)
+function janelaTurno(n, ref) {
+    const t = TURNOS.find(x => x.n === n) || TURNOS[0];
+    const cands = [-2, -1, 0, 1].map(d => { const base = meiaNoite(ref, d); return { ini: base + t.ini * H, fim: base + t.fim * H }; });
+    const passados = cands.filter(c => c.fim <= ref + 2 * H);
+    return passados.length ? passados.at(-1) : cands.sort((a, b) => Math.abs(ref - a.fim) - Math.abs(ref - b.fim))[0];
+}
+// Turno que está sendo fechado: o que terminou mais recentemente (ou termina em até 2 horas)
+function turnoProvavel(ref) {
+    return TURNOS.map(t => ({ n: t.n, fim: janelaTurno(t.n, ref).fim })).sort((a, b) => b.fim - a.fim)[0].n;
+}
+const msDe = (s) => { const m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/.exec(s || ''); return m ? new Date(+m[1], +m[2] - 1, +m[3], +m[4], +m[5]).getTime() : 0; };
+
+async function carregarCargasTurno() {
+    try { cargasPosto = await buscarCargas(estado.postoAtivo, 100); erroCargas = false; }
+    catch (e) { console.warn('Cargas não disponíveis para o caixa', e); erroCargas = true; }
+    atualizarDescargas();
+}
+
+function prepararTurno(n = null, ref = Date.now()) {
+    const sel = $('turno-fechamento');
+    sel.innerHTML = TURNOS.map(t => `<option value="${t.n}">${nomeTurno(t)}</option>`).join('');
+    sel.value = String(n || turnoProvavel(ref));
+    sel.onchange = () => atualizarDescargas(true);
+}
+
+// Preenche "Descarga" com o que foi descarregado no posto dentro do horário do turno
+function atualizarDescargas(forcar = false) {
+    if (!$('turno-fechamento')?.value) return;
+    const ref = correcao ? Number(correcao.ts) : Date.now();
+    const n = Number($('turno-fechamento').value);
+    const { ini, fim } = janelaTurno(n, ref);
+    const soma = {}, notas = {};
+    cargasPosto.filter(c => c.status === 'recebida' || c.status === 'parcial').forEach(c => {
+        const partes = c.descargas ? Object.values(c.descargas).map(d => ({ data: d.data, itens: d.itens || {} })) : (c.recebimento?.data ? [{ data: c.recebimento.data, itens: c.itens || {} }] : []);
+        partes.forEach(pt => {
+            const ms = msDe(pt.data);
+            if (!(ms >= ini && ms < fim)) return;
+            Object.entries(pt.itens).forEach(([p, l]) => {
+                if (!(Number(l) > 0)) return;
+                soma[p] = (soma[p] || 0) + Number(l);
+                (notas[p] ||= []).push(`${c.numero ? 'NF ' + c.numero : 'carga'} ${num(Number(l))} às ${pt.data.slice(11, 16)}`);
+            });
+        });
+    });
+    const d1 = new Date(ini), d2 = new Date(fim - 1);
+    $('turno-aviso').textContent = erroCargas ? 'Não foi possível ler as cargas registradas: preencha a descarga à mão.'
+        : `De ${d1.toLocaleDateString('pt-BR').slice(0, 5)} ${String(d1.getHours()).padStart(2, '0')}h até ${d2.toLocaleDateString('pt-BR').slice(0, 5)} ${String((d2.getHours() + 1) % 24).padStart(2, '0')}h. A descarga vem das cargas registradas pelo gerente nesse horário.`;
+    produtos.forEach(p => {
+        const el = $(`${p}-des`), dica = $(`${p}-des-nota`);
+        if (!el) return;
+        const total = soma[p] || 0;
+        if (!correcao && (forcar || el.value === '' || el.dataset.auto === '1')) { el.value = total ? String(total) : ''; el.dataset.auto = '1'; calcularLinha(p); }
+        const digitado = Number(el.value) || 0;
+        if (dica) {
+            dica.innerHTML = total ? `Notas: ${esc(notas[p].join('; '))}` : (erroCargas ? '' : 'Nenhuma descarga registrada no turno');
+            if (digitado !== total) dica.innerHTML += `<br><b class="dica-alerta">Diferente das cargas registradas (${num(total)})</b>`;
+        }
+    });
 }
 
 // Os campos são montados UMA VEZ, para não apagar o que está sendo digitado
@@ -49,7 +118,7 @@ function montarFormularios() {
         <div class="linha-produto">
             <div class="produto-nome">${rotulosProdutos[p]} <small>${unidade(p) === 'un' ? 'unidades' : 'litros'}</small></div>
             ${campo(p, 'ini', 'Est. inicial', `<small class="dica" id="${p}-ant"></small>`)}
-            ${campo(p, 'des', 'Descarga')}
+            ${campo(p, 'des', 'Descarga', `<small class="dica" id="${p}-des-nota"></small>`)}
             ${campo(p, 'ven', 'Vendido')}
             <div class="celula"><label>Est. final</label><div id="${p}-fin" class="resultado">0</div></div>
             ${campo(p, 'reg', 'Régua')}
@@ -61,7 +130,13 @@ function montarFormularios() {
     clearInterval(relogioDia);
     relogioDia = setInterval(() => prepararDiaVendas(correcao?.dia), 30000);   // acompanha o relógio
 
-    $('planilha-linhas').oninput = (e) => { if (e.target.dataset.produto) calcularLinha(e.target.dataset.produto); };
+    $('planilha-linhas').oninput = (e) => {
+        if (!e.target.dataset.produto) return;
+        if (e.target.id.endsWith('-des')) { e.target.dataset.auto = '0'; }
+        calcularLinha(e.target.dataset.produto);
+        if (e.target.id.endsWith('-des')) atualizarDescargas();
+    };
+    prepararTurno();
     $('form-encerrantes').onsubmit = salvarEncerrantes;
     $('form-planilha').onsubmit = salvarPlanilha;
     $('ultimo-fechamento').onclick = (e) => { if (e.target.closest('[data-correcao="editar"]')) iniciarCorrecao(); };
@@ -122,6 +197,8 @@ function limparPlanilha() {
     });
     $('total-vendido').textContent = '0';
     $('total-balde').textContent = '';
+    produtos.forEach(p => { const el = $(`${p}-des`); if (el) el.dataset.auto = '1'; });
+    if (!correcao) { prepararTurno(); atualizarDescargas(true); }
 }
 
 function desenharReferencia() {
@@ -207,6 +284,8 @@ function iniciarCorrecao() {
         calcularLinha(p);
     });
     $('responsavel-fechamento').value = correcao.reg.responsavelFechamento || '';
+    prepararTurno(Number(correcao.reg.turno) || null, Number(correcao.ts));
+    atualizarDescargas();
     prepararDiaVendas(correcao.dia);
     $('modo-correcao').innerHTML = `
         <div class="correcao-texto">${icone('lapis')}<div><b>Corrigindo o fechamento das ${horaDe(correcao.ts)}</b>
@@ -254,7 +333,8 @@ async function salvarPlanilha(e) {
     prepararDiaVendas(corrigindo?.dia);
     const valores = {};
     let txt = corrigindo ? `✏️ *CORREÇÃO do fechamento das ${horaDe(corrigindo.ts)}*\n` : '';
-    txt += `📊 *FECHAMENTO - 2B*\n🏢 Posto: ${posto}\n🕒 Horário: ${new Date().toLocaleString('pt-BR')}\n📅 Vendas do dia: ${dataBR(diaVendas)}\n👤 Responsável: ${responsavel}\n\n`;
+    const turno = Number($('turno-fechamento').value) || null;
+    txt += `📊 *FECHAMENTO - 2B*\n🏢 Posto: ${posto}\n🕒 Horário: ${new Date().toLocaleString('pt-BR')}\n${turno ? `🔄 ${nomeTurno(TURNOS.find(t => t.n === turno))}\n` : ''}📅 Vendas do dia: ${dataBR(diaVendas)}\n👤 Responsável: ${responsavel}\n\n`;
 
     produtos.forEach(p => {
         const s = (t) => $(`${p}-${t}`).value;
@@ -286,7 +366,7 @@ async function salvarPlanilha(e) {
     await comEspera(e.submitter, async () => {
         try {
             const extras = corrigindo ? { substitui: String(corrigindo.ts), ...(corrigindo.reg.dataFormatada ? { substituiData: corrigindo.reg.dataFormatada } : {}) } : {};
-            await salvarPosto({ dataFormatada: agoraFormatado(), tipoEnvio: "Fechamento de Turno", valores, responsavelFechamento: responsavel, diaVendas }, corrigindo ? 'correcao' : 'fechamento', extras);
+            await salvarPosto({ dataFormatada: agoraFormatado(), tipoEnvio: "Fechamento de Turno", valores, responsavelFechamento: responsavel, diaVendas, ...(turno ? { turno } : {}) }, corrigindo ? 'correcao' : 'fechamento', extras);
             if (corrigindo) registrarLog('correcao', `Corrigiu o fechamento das ${horaDe(corrigindo.ts)}: era ${num(litrosDe(corrigindo.reg))} L, ficou ${num(litros)} L. Responsável: ${responsavel}`);
             else registrarLog('fechamento', `Fechamento de turno: ${num(litros)} L vendidos${balde ? ` + ${num(balde)} un de ARLA balde` : ''} (vendas de ${dataBR(diaVendas)}). Responsável: ${responsavel}`);
         } catch (err) {
