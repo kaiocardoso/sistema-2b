@@ -292,7 +292,7 @@ export async function cancelarCarga(posto, carga, motivo) {
     await gravarCarga(posto, { ...carga, status: 'cancelada', cancelamento: { em: serverTimestamp(), por: auth.currentUser.email, motivo: String(motivo).slice(0, 300) } });
 }
 
-export async function buscarCargas(posto, limite = 60) {
+export async function buscarCargas(posto, limite = 200) {
     const snap = await get(query(ref(db, `${CAMINHO.cargas}/${posto}`), orderByChild('criadoEm'), limitToLast(limite)));
     return Object.entries(snap.val() || {}).map(([id, r]) => ({ id, posto, ...r }));
 }

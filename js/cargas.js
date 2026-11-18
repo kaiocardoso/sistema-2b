@@ -63,6 +63,12 @@ function blocoDescargas(c) {
     </div>`;
 }
 
+function ultimaConfirmacao(c) {
+    const ds = Object.values(c.descargas || {}).sort((a, b) => (b.em || 0) - (a.em || 0));
+    const u = ds[0] || c.recebimento;
+    return u?.em ? ` · recebimento confirmado por <b>${esc(u.porNome || u.por)}</b> em ${dataHora(u.em)}` : '';
+}
+
 // ---------- Cartão de uma carga ----------
 function cartao(c, { mostrarPosto }) {
     const rec = c.recebimento, itens = Object.entries(c.itens || {});
@@ -92,7 +98,7 @@ function cartao(c, { mostrarPosto }) {
         </div>` : ''}
         ${c.cancelamento ? `<p class="carga-obs">${icone('alerta')} Cancelada${c.cancelamento.motivo ? ': ' + esc(c.cancelamento.motivo) : ''}</p>` : ''}
         <footer class="oc-rodape">
-            <span>Lançada em ${dataHora(c.criadoEm)}${c.editadoEm ? ` · editada em ${dataHora(c.editadoEm)}` : ''}${rec ? ` · recebimento registrado por ${esc(rec.porNome || rec.por)} em ${dataHora(rec.em)}` : ''}</span>
+            <span>Lançada em ${dataHora(c.criadoEm)}${c.editadoEm ? ` · editada em ${dataHora(c.editadoEm)}` : ''}${ultimaConfirmacao(c)}</span>
             <span class="oc-acoes">
                 ${(c.status === 'a_caminho' || c.status === 'parcial') && podeReceber() ? `<button type="button" class="botao botao-sucesso botao-mini" data-carga="receber" data-posto="${esc(c.posto)}" data-id="${esc(c.id)}">${icone('check')} ${c.status === 'parcial' ? 'Registrar o restante' : 'Registrar descarga'}</button>` : ''}
                 ${ehAdmin() && (c.status === 'recebida' || c.status === 'parcial') ? `<button type="button" class="botao botao-claro botao-mini" data-carga="estornar" data-posto="${esc(c.posto)}" data-id="${esc(c.id)}">${icone('atualizar')} Estornar recebimento</button>` : ''}
@@ -122,14 +128,21 @@ export async function carregarCargasGerente() {
     try {
         cache[posto] = ordenar(await buscarCargas(posto));
         const caminho = cache[posto].filter(c => c.status === 'a_caminho' || c.status === 'parcial').sort(porEmissao);
-        const recebidas = cache[posto].filter(c => c.status === 'recebida').slice(0, 15);
+        const recebidas = cache[posto].filter(c => c.status === 'recebida').sort(porRecebimento).slice(0, 15);
         $('cargas-caminho').innerHTML = caminho.map(c => cartao(c, {})).join('') || '<div class="vazio-lista">Nenhuma carga a caminho no momento.</div>';
         $('cargas-recebidas').innerHTML = recebidas.map(c => cartao(c, {})).join('') || '<div class="vazio-lista">Nenhuma carga recebida ainda.</div>';
         resumoChip($('gerente-cargas-resumo'), caminho.length);
     } catch (e) { console.error(e); $('cargas-caminho').innerHTML = '<div class="vazio-lista">Não foi possível carregar as cargas.</div>'; }
 }
 
+// Quando o recebimento foi confirmado (última descarga registrada)
+export const momentoRecebimento = (c) => Math.max(Number(c.recebimento?.em) || 0, ...Object.values(c.descargas || {}).map(d => Number(d.em) || 0), 0);
+const porRecebimento = (a, b) => momentoRecebimento(b) - momentoRecebimento(a) || (b.criadoEm || 0) - (a.criadoEm || 0);
+const semAcento = (t) => String(t || '').toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+const casaBusca = (c, termo) => !termo || semAcento([c.posto, c.numero, c.fornecedor, c.transporte, c.obs, c.chave, ...Object.keys(c.itens || {}).map(p => rotulosProdutos[p])].join(' ')).includes(semAcento(termo));
+
 // ---------- Painel do gestor / administrador ----------
+let todasGestor = [], limiteRecebidas = 30;
 export async function carregarCargasGestor() {
     $('gestor-cargas-caminho').innerHTML = '<div class="esqueleto"></div><div class="esqueleto"></div>';
     const todas = [];
@@ -137,17 +150,27 @@ export async function carregarCargasGestor() {
         try { cache[posto] = ordenar(await buscarCargas(posto)); todas.push(...cache[posto]); }
         catch (e) { console.error(e); }
     }
-    ordenar(todas);
-    const caminho = todas.filter(c => c.status === 'a_caminho' || c.status === 'parcial').sort(porEmissao);
-    const recebidas = todas.filter(c => c.status === 'recebida').slice(0, 30);
-    const canceladas = todas.filter(c => c.status === 'cancelada').slice(0, 15);
-    $('gestor-cargas-caminho').innerHTML = caminho.map(c => cartao(c, { mostrarPosto: true })).join('') || '<div class="vazio-lista">Nenhuma carga a caminho.</div>';
-    $('gestor-cargas-recebidas').innerHTML = recebidas.map(c => cartao(c, { mostrarPosto: true })).join('') || '<div class="vazio-lista">Nenhuma carga recebida ainda.</div>';
-    $('gestor-cargas-canceladas').innerHTML = canceladas.map(c => cartao(c, { mostrarPosto: true })).join('') || '<div class="vazio-lista">Nenhuma.</div>';
-    resumoChip($('gestor-cargas-resumo'), caminho.length);
+    todasGestor = ordenar(todas);
+    desenharListasGestor();
+}
+
+function desenharListasGestor() {
+    const termo = ($('cargas-busca')?.value || '').trim();
+    const lista = todasGestor.filter(c => casaBusca(c, termo));
+    const caminho = lista.filter(c => c.status === 'a_caminho' || c.status === 'parcial').sort(porEmissao);
+    const todasRecebidas = lista.filter(c => c.status === 'recebida').sort(porRecebimento);
+    const recebidas = todasRecebidas.slice(0, limiteRecebidas);
+    const canceladas = lista.filter(c => c.status === 'cancelada').slice(0, 15);
+    const nada = (t) => `<div class="vazio-lista">${termo ? 'Nada encontrado para "' + esc(termo) + '".' : t}</div>`;
+    $('gestor-cargas-caminho').innerHTML = caminho.map(c => cartao(c, { mostrarPosto: true })).join('') || nada('Nenhuma carga a caminho.');
+    $('gestor-cargas-recebidas').innerHTML = (recebidas.map(c => cartao(c, { mostrarPosto: true })).join('') || nada('Nenhuma carga recebida ainda.'))
+        + (todasRecebidas.length > recebidas.length ? `<button type="button" class="botao botao-claro" id="cargas-mais-recebidas">Mostrar mais (${todasRecebidas.length - recebidas.length} restantes)</button>` : '');
+    $('gestor-cargas-canceladas').innerHTML = canceladas.map(c => cartao(c, { mostrarPosto: true })).join('') || nada('Nenhuma.');
+    const caminhoTodas = todasGestor.filter(c => c.status === 'a_caminho' || c.status === 'parcial');
+    resumoChip($('gestor-cargas-resumo'), caminhoTodas.length);
     const litros = caminho.reduce((s, c) => s + Object.values(faltaPorProduto(c)).reduce((a, b) => a + b, 0), 0), valor = caminho.reduce((s, c) => s + Number(c.valor || 0), 0);
     const alerta = $('aba-cargas-alerta');
-    if (alerta) { alerta.textContent = caminho.length; alerta.classList.toggle('oculto', !caminho.length); }
+    if (alerta) { alerta.textContent = caminhoTodas.length; alerta.classList.toggle('oculto', !caminhoTodas.length); }
     $('gestor-cargas-totais').innerHTML = caminho.length
         ? `<div class="resumo-card"><span>A caminho</span><strong>${caminho.length} carga${caminho.length > 1 ? 's' : ''}</strong><small>${num(litros)} L</small></div>
            <div class="resumo-card"><span>Valor a caminho</span><strong>${reais(valor)}</strong><small>soma das notas</small></div>`
@@ -409,6 +432,7 @@ function abrirRecebimento(c) {
 let ativado = false;
 export function ativarCargas() {
     if (ativado) return; ativado = true;
+    document.addEventListener('input', (e) => { if (e.target.id === 'cargas-busca') { limiteRecebidas = 30; desenharListasGestor(); } });
     document.addEventListener('change', (e) => {
         if (e.target.id === 'cargas-arquivo') { const fs = Array.from(e.target.files || []); e.target.value = ''; if (fs.length) importarArquivos(fs); }
         const ed = e.target.closest('.carga-editor');
@@ -417,8 +441,9 @@ export function ativarCargas() {
         if (ed && e.target.dataset.f === 'posto') { const r = rascunhos.find(x => x.rid === Number(ed.dataset.rid)); if (r) { lerEditor(r); r.aviso = ''; r.duplicada = false; reDesenhar(r); } }
     });
     document.addEventListener('click', async (e) => {
-        const b = e.target.closest('[data-carga],[data-rasc],#cargas-manual,#cargas-lancar-todas');
+        const b = e.target.closest('[data-carga],[data-rasc],#cargas-manual,#cargas-lancar-todas,#cargas-mais-recebidas');
         if (!b) return;
+        if (b.id === 'cargas-mais-recebidas') { limiteRecebidas += 30; desenharListasGestor(); return; }
         if (b.id === 'cargas-manual') { rascunhos.push({ rid: ++seq, tipo: 'manual', itens: [], dataEmissao: hojeISO(), jaRecebida: !!$('cargas-ja-recebidas')?.checked }); desenharRascunhos(); return; }
         if (b.id === 'cargas-lancar-todas') {
             for (const r of rascunhos.filter(x => !x.editando)) lerEditor(r);
