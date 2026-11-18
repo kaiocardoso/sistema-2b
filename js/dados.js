@@ -1,5 +1,5 @@
 // Estado da sessão + leitura e gravação no banco
-import { db, auth, ref, set, get, push, serverTimestamp, onValue, query, orderByChild, orderByKey, equalTo, startAt, endAt, limitToLast, CAMINHO } from "./firebase.js";
+import { db, auth, ref, set, get, update, push, serverTimestamp, onValue, query, orderByChild, orderByKey, equalTo, startAt, endAt, limitToLast, CAMINHO } from "./firebase.js";
 import { configPostos, DOMINIO_LOGIN, LOGIN_ADMIN, diaDasVendasPelaHora } from "./config.js";
 
 export const estado = {
@@ -256,8 +256,32 @@ export async function gravarCarga(posto, carga) {
     await set(ref(db, `${CAMINHO.cargas}/${posto}/${id}`), resto);
 }
 
-export async function receberCarga(posto, carga, rec) {
-    await gravarCarga(posto, { ...carga, status: 'recebida', recebimento: { ...rec, em: serverTimestamp(), por: auth.currentUser.email, porNome: String(estado.perfil.nome).slice(0, 80) } });
+// Descarga (parcial ou completa). Se parte foi para outro posto, o empréstimo é gravado junto (tudo ou nada).
+export async function registrarDescarga(posto, carga, descarga, novoStatus, emprestimos = {}) {
+    const base = `${CAMINHO.cargas}/${posto}/${carga.id}`;
+    const id = push(ref(db, `${base}/descargas`)).key;
+    const mudancas = {
+        [`${base}/descargas/${id}`]: { ...descarga, em: serverTimestamp(), por: auth.currentUser.email, porNome: String(estado.perfil.nome).slice(0, 80) },
+        [`${base}/status`]: novoStatus
+    };
+    Object.entries(emprestimos).forEach(([eid, e]) => { mudancas[`${CAMINHO.emprestimos}/${eid}`] = e; });
+    await update(ref(db), mudancas);
+}
+
+// Estorno (administrador): a carga volta para "a caminho" e os empréstimos criados nas descargas são apagados
+export async function estornarRecebimento(posto, carga, motivo) {
+    const { id, posto: _p, recebimento, descargas, ...resto } = carga;
+    const mudancas = { [`${CAMINHO.cargas}/${posto}/${id}`]: { ...resto, status: 'a_caminho', editadoEm: serverTimestamp(), estorno: { em: serverTimestamp(), por: auth.currentUser.email, motivo: String(motivo).slice(0, 300) } } };
+    Object.values(descargas || {}).forEach(d => Object.values(d.transferencias || {}).forEach(t => { if (t.emprestimo) mudancas[`${CAMINHO.emprestimos}/${t.emprestimo}`] = null; }));
+    await update(ref(db), mudancas);
+}
+
+// Dados para gravar um empréstimo (mesmo formato do formulário de empréstimos)
+export function dadosEmprestimo({ data, origem, destino, produto, volume }) {
+    const timestamp = Date.now() + Math.floor(Math.random() * 1000);
+    const quem = responsavel();
+    const email = auth.currentUser.email;
+    return { id: String(timestamp), dados: { data, origem, destino, produto, volume, devolvido: 0, status: 'pendente', timestamp, criadoPor: quem, atualizadoPor: `Criado por ${quem} (descarga de nota)`, criadoPorEmail: email, atualizadoPorEmail: email } };
 }
 
 export async function editarCarga(posto, carga) {

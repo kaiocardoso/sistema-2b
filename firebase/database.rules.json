@@ -117,8 +117,8 @@
           "status"
         ],
         "$id": {
-          ".write": "auth != null && auth.token.email != null && (auth.token.email === 'admin@rede2b.app' || root.child('perfis').child(auth.token.email.toLowerCase().replace('.', ',')).child('postos').child($posto).val() === true) && newData.exists() && (auth.token.email === 'admin@rede2b.app' || ((root.child('perfis').child(auth.token.email.toLowerCase().replace('.', ',')).child('papel').val() === 'gerente' || root.child('perfis').child(auth.token.email.toLowerCase().replace('.', ',')).child('papel').val() === 'gestor') && data.child('status').val() === 'a_caminho' && newData.child('status').val() === 'recebida'))",
-          ".validate": "newData.hasChildren(['criadoEm', 'criadoPor', 'origem', 'fornecedor', 'dataEmissao', 'itens', 'status']) && (newData.child('status').val() !== 'recebida' || newData.hasChildren(['recebimento']))",
+          ".write": "auth != null && auth.token.email != null && (auth.token.email === 'admin@rede2b.app' || root.child('perfis').child(auth.token.email.toLowerCase().replace('.', ',')).child('postos').child($posto).val() === true) && newData.exists() && auth.token.email === 'admin@rede2b.app'",
+          ".validate": "newData.hasChildren(['criadoEm', 'criadoPor', 'origem', 'fornecedor', 'dataEmissao', 'itens', 'status']) && ((newData.child('status').val() !== 'recebida' && newData.child('status').val() !== 'parcial') || newData.hasChildren(['recebimento']) || newData.hasChildren(['descargas']))",
           "criadoEm": {
             ".validate": "(!data.parent().exists() && newData.val() === now) || (data.parent().exists() && newData.val() === data.val())"
           },
@@ -159,7 +159,8 @@
             }
           },
           "status": {
-            ".validate": "newData.val() === 'a_caminho' || newData.val() === 'recebida' || (newData.val() === 'cancelada' && auth.token.email === 'admin@rede2b.app')"
+            ".write": "auth != null && auth.token.email != null && (auth.token.email === 'admin@rede2b.app' || root.child('perfis').child(auth.token.email.toLowerCase().replace('.', ',')).child('postos').child($posto).val() === true) && (root.child('perfis').child(auth.token.email.toLowerCase().replace('.', ',')).child('papel').val() === 'gerente' || root.child('perfis').child(auth.token.email.toLowerCase().replace('.', ',')).child('papel').val() === 'gestor') && (data.val() === 'a_caminho' || data.val() === 'parcial') && (newData.val() === 'parcial' || newData.val() === 'recebida')",
+            ".validate": "newData.val() === 'a_caminho' || newData.val() === 'parcial' || newData.val() === 'recebida' || (newData.val() === 'cancelada' && auth.token.email === 'admin@rede2b.app')"
           },
           "editadoEm": {
             ".validate": "(auth.token.email === 'admin@rede2b.app' && (newData.val() === now)) || (data.exists() && newData.val() === data.val())"
@@ -200,6 +201,61 @@
             "$outro": {
               ".validate": false
             }
+          },
+          "descargas": {
+            "$d": {
+              ".write": "auth != null && auth.token.email != null && (auth.token.email === 'admin@rede2b.app' || root.child('perfis').child(auth.token.email.toLowerCase().replace('.', ',')).child('postos').child($posto).val() === true) && (root.child('perfis').child(auth.token.email.toLowerCase().replace('.', ',')).child('papel').val() === 'gerente' || root.child('perfis').child(auth.token.email.toLowerCase().replace('.', ',')).child('papel').val() === 'gestor') && !data.exists() && newData.exists() && (data.parent().parent().child('status').val() === 'a_caminho' || data.parent().parent().child('status').val() === 'parcial')",
+              ".validate": "newData.hasChildren(['em', 'por', 'data', 'responsavel', 'itens'])",
+              "em": {
+                ".validate": "(data.exists() && newData.val() === data.val()) || newData.val() === now"
+              },
+              "por": {
+                ".validate": "(data.exists() && newData.val() === data.val()) || newData.val() === auth.token.email"
+              },
+              "porNome": {
+                ".validate": "newData.isString() && newData.val().length <= 80"
+              },
+              "data": {
+                ".validate": "newData.isString() && newData.val().length === 16"
+              },
+              "responsavel": {
+                ".validate": "newData.isString() && newData.val().length >= 2 && newData.val().length <= 60"
+              },
+              "lacres": {
+                ".validate": "newData.isBoolean()"
+              },
+              "obs": {
+                ".validate": "newData.isString() && newData.val().length <= 300"
+              },
+              "itens": {
+                "$p": {
+                  ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() < 200000"
+                }
+              },
+              "transferencias": {
+                "$p": {
+                  ".validate": "newData.hasChildren(['posto', 'litros', 'emprestimo'])",
+                  "posto": {
+                    ".validate": "newData.isString() && newData.val().length <= 60"
+                  },
+                  "litros": {
+                    ".validate": "newData.isNumber() && newData.val() > 0 && newData.val() < 200000"
+                  },
+                  "emprestimo": {
+                    ".validate": "newData.isString() && newData.val().length <= 30"
+                  },
+                  "$outro": {
+                    ".validate": false
+                  }
+                }
+              },
+              "$outro": {
+                ".validate": false
+              }
+            }
+          },
+          "estorno": {
+            ".validate": "auth.token.email === 'admin@rede2b.app'"
           },
           "cancelamento": {
             ".validate": "auth.token.email === 'admin@rede2b.app'"

@@ -122,7 +122,7 @@ export function pedirTexto(titulo, mensagem, placeholder = '', textoOk = 'Anular
             <input type="text" class="campo" maxlength="300" placeholder="${esc(placeholder)}">
             <div class="acoes">
                 <button type="button" class="botao botao-claro" data-r="cancelar">Cancelar</button>
-                <button type="button" class="botao ${textoOk === 'Anular' ? 'botao-perigo' : 'botao-sucesso'}" data-r="ok">${esc(textoOk)}</button>
+                <button type="button" class="botao ${['Anular', 'Estornar'].includes(textoOk) ? 'botao-perigo' : 'botao-sucesso'}" data-r="ok">${esc(textoOk)}</button>
             </div>`, (e, fechar) => {
                 if (e.target === e.currentTarget || e.target.closest('[data-r="cancelar"]')) { fechar(); resolve(null); }
                 if (e.target.closest('[data-r="ok"]')) { fechar(); resolve(input.value.trim()); }

@@ -75,13 +75,23 @@ export async function calcularEvolucao(posto, isoIni, isoFim = hojeISO()) {
     });
 
     // notas recebidas (pela data e hora da descarga)
-    cargas.filter(c => c.status === 'recebida' && c.recebimento?.data).forEach(c => {
-        const dia = diaDaDataHora(c.recebimento.data);
-        if (dia < isoIni || dia > isoFim) return;
-        Object.entries(c.itens || {}).forEach(([p, l]) => {
-            if (!R[p]) return;
-            D(p, dia).entradas += n(l); R[p].entradas += n(l);
-            R[p].notas.push({ dia, litros: n(l), numero: c.numero, fornecedor: c.fornecedor, id: c.id, chegada: msDaDataHora(c.recebimento.data), carga: c });
+    // cada descarga conta no seu dia; o que foi para outro posto entra aqui e sai como empréstimo
+    cargas.filter(c => c.status === 'recebida' || c.status === 'parcial').forEach(c => {
+        const partes = c.descargas
+            ? Object.entries(c.descargas).map(([k, d]) => ({ k, data: d.data, itens: d.itens || {}, transf: d.transferencias || {} }))
+            : (c.recebimento?.data ? [{ k: null, data: c.recebimento.data, itens: c.itens || {}, transf: {} }] : []);
+        partes.forEach(pt => {
+            const dia = diaDaDataHora(pt.data);
+            if (dia < isoIni || dia > isoFim) return;
+            Object.entries(pt.itens).forEach(([p, l]) => {
+                if (!R[p] || !(n(l) > 0)) return;
+                D(p, dia).entradas += n(l); R[p].entradas += n(l);
+                R[p].notas.push({ dia, litros: n(l), numero: c.numero, fornecedor: c.fornecedor, id: c.id, descId: pt.k, chegada: msDaDataHora(pt.data), carga: c });
+            });
+            Object.entries(pt.transf).forEach(([p, t]) => {
+                if (!R[p]) return;
+                D(p, dia).entradas += n(t.litros); R[p].entradas += n(t.litros); R[p].transferido = (R[p].transferido || 0) + n(t.litros);
+            });
         });
     });
 
@@ -191,7 +201,7 @@ function conferir(ev) {
             return null;
         };
         const sugerirData = (grupo, m) => grupo.filter(x => x.tipo === 'nota').forEach(x =>
-            add('data', x.dia, `Nota ${x.numero ? 'NF ' + x.numero + ' ' : ''}(${num(x.litros)} L) está com chegada em ${dataBR(x.dia).slice(0, 5)}, mas o caixa registrou a descarga em ${dataBR(m.d).slice(0, 5)}.`, { posto: ev.posto, id: x.id, novaData: dataHoraLocal(m.ts) }));
+            add('data', x.dia, `Nota ${x.numero ? 'NF ' + x.numero + ' ' : ''}(${num(x.litros)} L) está com chegada em ${dataBR(x.dia).slice(0, 5)}, mas o caixa registrou a descarga em ${dataBR(m.d).slice(0, 5)}.`, { posto: ev.posto, id: x.id, descId: x.descId, novaData: dataHoraLocal(m.ts) }));
         ent.filter(x => !x.ok).forEach(x => { const m = casar([x], x.litros, x.dia); if (m && m.delta !== 0) sugerirData([x], m); });
         new Set(ent.filter(x => !x.ok).map(x => x.dia)).forEach(d => {
             const E = livres(ent, d); if (E.length < 2) return;
@@ -255,7 +265,7 @@ function quadroPontos(ev, comAcoes) {
     const grupos = Object.keys(TIPOS_PONTO).map(t => [t, lista.filter(x => x.tipo === t)]).filter(([, l]) => l.length);
     return `<details class="evo-pontos" ${pontosQueImportam(ev).length ? 'open' : ''}><summary>${icone('alerta')} <b>${pontosQueImportam(ev).length} ponto${pontosQueImportam(ev).length !== 1 ? 's' : ''} a conferir</b><span class="texto-suave"> · notas × descarga do caixa e digitação</span></summary>
         ${grupos.map(([t, l]) => `<div class="evo-grupo evo-grupo-${TIPOS_PONTO[t].cor}"><h5>${icone(TIPOS_PONTO[t].icone)} ${TIPOS_PONTO[t].titulo} · ${l.length}</h5><ul>${l.map(x => `<li><span><b>${esc(x.rot)}</b> · ${esc(x.texto)}</span>
-            ${admin && x.tipo === 'data' && x.id ? `<button type="button" class="botao botao-claro botao-mini" data-ponto="data" data-id="${esc(x.id)}" data-nova="${x.novaData}">Usar ${dataBR(x.novaData.slice(0, 10)).slice(0, 5)}</button>` : ''}
+            ${admin && x.tipo === 'data' && x.id ? `<button type="button" class="botao botao-claro botao-mini" data-ponto="data" data-id="${esc(x.id)}" data-desc="${esc(x.descId || '')}" data-nova="${x.novaData}">Usar ${dataBR(x.novaData.slice(0, 10)).slice(0, 5)}</button>` : ''}
             ${admin && x.tipo === 'semNota' ? `<button type="button" class="botao botao-claro botao-mini" data-ponto="nota" data-produto="${x.produto}" data-litros="${x.litros}" data-nova="${x.novaData}">Lançar nota</button>` : ''}
         </li>`).join('')}</ul></div>`).join('')}
     </details>`;
@@ -270,7 +280,7 @@ function resumoProduto(p, r) {
     return `<div class="evo-produto ${r.ok ? '' : 'evo-fora'}">
         <div class="evo-topo"><strong>${rotulosProdutos[p]}</strong>${chip}</div>
         ${linha('Estoque inicial', num(r.inicial) + ' L', '', r.inicialDe)}
-        ${linha('+ Compras recebidas', num(r.entradas) + ' L', 'evo-mais', `${r.notas.length} nota${r.notas.length !== 1 ? 's' : ''}${r.descargaCaixa ? ` · caixas informaram ${num(r.descargaCaixa)} L de descarga` : ''}`)}
+        ${linha('+ Compras recebidas', num(r.entradas) + ' L', 'evo-mais', `${new Set(r.notas.map(x => x.id)).size} nota${new Set(r.notas.map(x => x.id)).size !== 1 ? 's' : ''}${r.transferido ? ` · inclui ${num(r.transferido)} L que foram para outro posto (saem como empréstimo)` : ''}${r.descargaCaixa ? ` · caixas informaram ${num(r.descargaCaixa)} L de descarga` : ''}`)}
         ${r.empEntrada ? linha('+ Empréstimos recebidos / devolvidos ao posto', num(r.empEntrada) + ' L', 'evo-mais') : ''}
         ${r.empSaida ? linha('− Emprestado / devolvido a outro posto', num(r.empSaida) + ' L', 'evo-menos') : ''}
         ${r.devSemData ? linha('± Devoluções sem data registrada', sinal(r.devSemData) + ' L', '') : ''}
@@ -338,12 +348,13 @@ export function abrirEvolucao(posto) {
             novoRascunhoCarga({ posto, produto: b.dataset.produto, litros: Number(b.dataset.litros), dataRecebida: b.dataset.nova });
             return;
         }
-        const nota = ultimo.produtos.flatMap(p => ultimo.R[p].notas).find(x => x.id === b.dataset.id);
+        const nota = ultimo.produtos.flatMap(p => ultimo.R[p].notas).find(x => x.id === b.dataset.id && (x.descId || '') === b.dataset.desc);
         if (!nota) return;
         await comEspera(b, async () => {
             try {
                 const { carga } = nota;
-                await editarCarga(posto, { ...carga, recebimento: { ...carga.recebimento, data: b.dataset.nova } });
+                const k = b.dataset.desc;
+                await editarCarga(posto, k ? { ...carga, descargas: { ...carga.descargas, [k]: { ...carga.descargas[k], data: b.dataset.nova } } } : { ...carga, recebimento: { ...carga.recebimento, data: b.dataset.nova } });
                 registrarLog('carga', `Mudou a chegada da carga ${carga.numero ? 'NF ' + carga.numero + ' ' : ''}de ${posto} para ${dataBR(b.dataset.nova.slice(0, 10))} ${b.dataset.nova.slice(11)} (data da descarga do caixa)`);
                 aviso('Data de chegada ajustada.');
                 carregar();

@@ -1,14 +1,14 @@
 // Cargas de combustível (notas de compra)
 // Administrador lança (XML da NF-e/CT-e ou manual) → aparece "A caminho" para o posto
 // → gerente marca como recebida (data, responsável, régua antes/depois, lacres, observação).
-import { configPostos, rotulosProdutos, TOLERANCIA_ESTOQUE, unidade } from "./config.js";
-import { estado, cargaExiste, lancarCarga, receberCarga, editarCarga, cancelarCarga, buscarCargas, registrarLog } from "./dados.js";
+import { configPostos, rotulosProdutos, TOLERANCIA_ESTOQUE, unidade, diaDasVendasPelaHora } from "./config.js";
+import { estado, cargaExiste, lancarCarga, registrarDescarga, estornarRecebimento, dadosEmprestimo, editarCarga, cancelarCarga, buscarCargas, registrarLog } from "./dados.js";
 import { lerXML, numeroDaChave } from "./xml-cargas.js";
 import { $, esc, num, dataBR, hojeISO, aviso, comEspera, confirmar, pedirTexto } from "./util.js";
 import { icone } from "./icones.js";
 
 const PRODUTOS_CARGA = ['s10', 's500', 'comum', 'vpower', 'etanol', 'arla_g', 'arla_b'];
-const STATUS = { a_caminho: 'A caminho', recebida: 'Recebida', cancelada: 'Cancelada' };
+const STATUS = { a_caminho: 'A caminho', parcial: 'Descarga parcial', recebida: 'Recebida', cancelada: 'Cancelada' };
 const ORIGEM = { nfe: 'NF-e', cte: 'CT-e', manual: 'Manual' };
 
 export const reais = (v) => Number(v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -37,6 +37,32 @@ function linhaConferencia(r) {
         → <b>${sinal(r.dif)} L (${pctTxt(r.pct)})</b> ${r.ok ? 'dentro da tolerância' : r.dif < 0 ? 'FALTA acima de 0,6%' : 'SOBRA acima de 0,6%'}</li>`;
 }
 
+// Quanto de cada produto já foi resolvido (descarregado aqui ou mandado a outro posto)
+export function recebidoPorProduto(c) {
+    if (c.recebimento && !c.descargas) return { ...(c.itens || {}) };
+    const r = {};
+    Object.values(c.descargas || {}).forEach(d => {
+        Object.entries(d.itens || {}).forEach(([p, l]) => { r[p] = (r[p] || 0) + Number(l || 0); });
+        Object.entries(d.transferencias || {}).forEach(([p, t]) => { r[p] = (r[p] || 0) + Number(t.litros || 0); });
+    });
+    return r;
+}
+const faltaPorProduto = (c) => { const r = recebidoPorProduto(c); return Object.fromEntries(Object.entries(c.itens || {}).map(([p, l]) => [p, Math.max(0, Number(l) - (r[p] || 0))])); };
+const PROD_EMPRESTIMO = { s10: 'DIESEL S-10', s500: 'DIESEL S-500', comum: 'GAS. COMUM', vpower: 'GAS. ADITIVADA', etanol: 'ETANOL' };
+const ordenarDescargas = (c) => Object.entries(c.descargas || {}).sort((a, b) => String(a[1].data).localeCompare(String(b[1].data)) || (a[1].em - b[1].em));
+
+function blocoDescargas(c) {
+    const lista = ordenarDescargas(c);
+    if (!lista.length) return '';
+    const falta = faltaPorProduto(c), pend = Object.entries(falta).filter(([, l]) => l > 0);
+    return `<div class="carga-recebimento">
+        ${lista.map(([, d], i) => `<p>${icone('check')} <b>${lista.length > 1 ? `${i + 1}ª descarga` : 'Descarga'} em ${dataHoraLocal(d.data)}</b> · ${Object.entries(d.itens || {}).filter(([, l]) => l > 0).map(([p, l]) => `${num(l)} ${unidade(p)} de ${rotulosProdutos[p] || p}`).join(', ') || 'nada descarregado aqui'} · ${esc(d.responsavel)}${d.lacres === true ? ' · lacres conferidos' : d.lacres === false ? ' · <b>lacres NÃO conferidos</b>' : ''}</p>
+            ${Object.entries(d.transferencias || {}).map(([p, t]) => `<p class="carga-transf">${icone('troca')} ${num(t.litros)} L de ${rotulosProdutos[p] || p} foram para o <b>${esc(t.posto)}</b> (empréstimo)</p>`).join('')}
+            ${d.obs ? `<p class="carga-obs">${icone('mensagem')} ${esc(d.obs)}</p>` : ''}`).join('')}
+        ${pend.length ? `<p class="carga-falta">${icone('caminhao')} <b>Falta descarregar:</b> ${pend.map(([p, l]) => `${num(l)} ${unidade(p)} de ${rotulosProdutos[p] || p}`).join(', ')} (ficou no caminhão)</p>` : ''}
+    </div>`;
+}
+
 // ---------- Cartão de uma carga ----------
 function cartao(c, { mostrarPosto }) {
     const rec = c.recebimento, itens = Object.entries(c.itens || {});
@@ -45,7 +71,7 @@ function cartao(c, { mostrarPosto }) {
     return `<article class="carga st-${c.status}">
         <header class="oc-topo">
             <div class="oc-chips">
-                <span class="chip chip-carga-${c.status}">${c.status === 'a_caminho' ? icone('caminhao') + ' ' : ''}${STATUS[c.status] || c.status}</span>
+                <span class="chip chip-carga-${c.status}">${c.status === 'a_caminho' || c.status === 'parcial' ? icone('caminhao') + ' ' : ''}${STATUS[c.status] || c.status}</span>
                 <span class="chip chip-cinza">${ORIGEM[c.origem] || c.origem}${c.numero ? ' nº ' + esc(c.numero) : ''}</span>
                 ${fora ? `<span class="chip chip-vermelho">${icone('alerta')} diferença na régua</span>` : ''}
             </div>
@@ -57,7 +83,9 @@ function cartao(c, { mostrarPosto }) {
             ${itens.length > 1 ? `<span class="carga-item carga-total"><small>Total</small><b>${num(totalLitros(c))} L</b></span>` : ''}</div>
         ${c.transporte ? `<p class="carga-obs">${icone('caminhao')} ${esc(c.transporte)}</p>` : ''}
         ${c.obs ? `<p class="carga-obs">${icone('mensagem')} ${esc(c.obs)}</p>` : ''}
-        ${rec ? `<div class="carga-recebimento">
+        ${blocoDescargas(c)}
+        ${c.estorno && c.status === 'a_caminho' ? `<p class="carga-obs">${icone('alerta')} Recebimento estornado em ${dataHora(c.estorno.em)}${c.estorno.motivo ? ': ' + esc(c.estorno.motivo) : ''}</p>` : ''}
+        ${rec && !c.descargas ? `<div class="carga-recebimento">
             <p>${icone('check')} <b>Recebida em ${dataHoraLocal(rec.data)}</b> · ${esc(rec.responsavel)}${rec.lacres === true ? ' · lacres conferidos' : rec.lacres === false ? ' · <b>lacres NÃO conferidos</b>' : ''}</p>
             ${conf.length ? `<ul class="carga-conf">${conf.map(linhaConferencia).join('')}</ul>` : ''}
             ${rec.obs ? `<p class="carga-obs">${icone('mensagem')} ${esc(rec.obs)}</p>` : ''}
@@ -66,7 +94,8 @@ function cartao(c, { mostrarPosto }) {
         <footer class="oc-rodape">
             <span>Lançada em ${dataHora(c.criadoEm)}${c.editadoEm ? ` · editada em ${dataHora(c.editadoEm)}` : ''}${rec ? ` · recebimento registrado por ${esc(rec.porNome || rec.por)} em ${dataHora(rec.em)}` : ''}</span>
             <span class="oc-acoes">
-                ${c.status === 'a_caminho' && podeReceber() ? `<button type="button" class="botao botao-sucesso botao-mini" data-carga="receber" data-posto="${esc(c.posto)}" data-id="${esc(c.id)}">${icone('check')} Recebi esta carga</button>` : ''}
+                ${(c.status === 'a_caminho' || c.status === 'parcial') && podeReceber() ? `<button type="button" class="botao botao-sucesso botao-mini" data-carga="receber" data-posto="${esc(c.posto)}" data-id="${esc(c.id)}">${icone('check')} ${c.status === 'parcial' ? 'Registrar o restante' : 'Registrar descarga'}</button>` : ''}
+                ${ehAdmin() && (c.status === 'recebida' || c.status === 'parcial') ? `<button type="button" class="botao botao-claro botao-mini" data-carga="estornar" data-posto="${esc(c.posto)}" data-id="${esc(c.id)}">${icone('atualizar')} Estornar recebimento</button>` : ''}
                 ${ehAdmin() && c.status !== 'cancelada' ? `<button type="button" class="botao botao-claro botao-mini" data-carga="editar" data-posto="${esc(c.posto)}" data-id="${esc(c.id)}">${icone('lapis')} Editar</button>` : ''}
                 ${ehAdmin() && c.status === 'a_caminho' ? `<button type="button" class="botao botao-perigo botao-mini" data-carga="cancelar" data-posto="${esc(c.posto)}" data-id="${esc(c.id)}">Cancelar</button>` : ''}
             </span>
@@ -92,7 +121,7 @@ export async function carregarCargasGerente() {
     $('cargas-caminho').innerHTML = '<div class="esqueleto"></div>';
     try {
         cache[posto] = ordenar(await buscarCargas(posto));
-        const caminho = cache[posto].filter(c => c.status === 'a_caminho').sort(porEmissao);
+        const caminho = cache[posto].filter(c => c.status === 'a_caminho' || c.status === 'parcial').sort(porEmissao);
         const recebidas = cache[posto].filter(c => c.status === 'recebida').slice(0, 15);
         $('cargas-caminho').innerHTML = caminho.map(c => cartao(c, {})).join('') || '<div class="vazio-lista">Nenhuma carga a caminho no momento.</div>';
         $('cargas-recebidas').innerHTML = recebidas.map(c => cartao(c, {})).join('') || '<div class="vazio-lista">Nenhuma carga recebida ainda.</div>';
@@ -109,14 +138,14 @@ export async function carregarCargasGestor() {
         catch (e) { console.error(e); }
     }
     ordenar(todas);
-    const caminho = todas.filter(c => c.status === 'a_caminho').sort(porEmissao);
+    const caminho = todas.filter(c => c.status === 'a_caminho' || c.status === 'parcial').sort(porEmissao);
     const recebidas = todas.filter(c => c.status === 'recebida').slice(0, 30);
     const canceladas = todas.filter(c => c.status === 'cancelada').slice(0, 15);
     $('gestor-cargas-caminho').innerHTML = caminho.map(c => cartao(c, { mostrarPosto: true })).join('') || '<div class="vazio-lista">Nenhuma carga a caminho.</div>';
     $('gestor-cargas-recebidas').innerHTML = recebidas.map(c => cartao(c, { mostrarPosto: true })).join('') || '<div class="vazio-lista">Nenhuma carga recebida ainda.</div>';
     $('gestor-cargas-canceladas').innerHTML = canceladas.map(c => cartao(c, { mostrarPosto: true })).join('') || '<div class="vazio-lista">Nenhuma.</div>';
     resumoChip($('gestor-cargas-resumo'), caminho.length);
-    const litros = caminho.reduce((s, c) => s + totalLitros(c), 0), valor = caminho.reduce((s, c) => s + Number(c.valor || 0), 0);
+    const litros = caminho.reduce((s, c) => s + Object.values(faltaPorProduto(c)).reduce((a, b) => a + b, 0), 0), valor = caminho.reduce((s, c) => s + Number(c.valor || 0), 0);
     const alerta = $('aba-cargas-alerta');
     if (alerta) { alerta.textContent = caminho.length; alerta.classList.toggle('oculto', !caminho.length); }
     $('gestor-cargas-totais').innerHTML = caminho.length
@@ -221,7 +250,7 @@ async function lancar(r, botao) {
             if (r.editando) {
                 const orig = acharCarga(r.posto, r.id);
                 const novo = { ...orig, ...c };
-                if (orig.recebimento && r.dataRecebida) novo.recebimento = { ...orig.recebimento, data: r.dataRecebida };
+                if (orig.recebimento && !orig.descargas && r.dataRecebida) novo.recebimento = { ...orig.recebimento, data: r.dataRecebida };
                 ['numero', 'transporte', 'obs'].forEach(k => { if (!(k in c)) delete novo[k]; });
                 await editarCarga(r.posto, novo);
                 registrarLog('carga', `Editou a carga ${c.numero ? 'NF ' + c.numero + ' ' : ''}de ${r.posto}: ${resumoItens(c.itens)}, ${reais(c.valor)}`);
@@ -272,7 +301,7 @@ function abrirEdicao(c) {
     rascunhos = rascunhos.filter(r => !r.editando);
     const r = {
         rid: ++seq, editando: true, id: c.id, tipo: c.origem, posto: c.posto, fornecedor: c.fornecedor, numero: c.numero || '', dataEmissao: c.dataEmissao,
-        valor: c.valor, transporte: c.transporte || '', obs: c.obs || '', chave: c.chave, recebida: !!c.recebimento, dataRecebida: c.recebimento?.data || '', nomeArquivo: c.numero ? 'nº ' + c.numero : '',
+        valor: c.valor, transporte: c.transporte || '', obs: c.obs || '', chave: c.chave, recebida: !!c.recebimento && !c.descargas, dataRecebida: c.recebimento?.data || '', nomeArquivo: c.numero ? 'nº ' + c.numero : '',
         itens: Object.entries(c.itens || {}).map(([produto, litros]) => ({ produto, litros }))
     };
     rascunhos.push(r);
@@ -283,14 +312,16 @@ function abrirEdicao(c) {
     $('carga-edicao').innerHTML = editor(r);
 }
 
-// ---------- Recebimento (gerente / gestor) ----------
+// ---------- Descarga (gerente / gestor / administrador), inteira ou em partes ----------
 function abrirRecebimento(c) {
-    const prods = Object.keys(c.itens || {});
+    const falta = faltaPorProduto(c);
+    const prods = Object.keys(c.itens || {}).filter(p => falta[p] > 0);
     const agora = new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+    const outros = Object.keys(configPostos).filter(p => p !== c.posto);
     const fundo = document.createElement('div');
     fundo.className = 'janela-fundo';
     fundo.innerHTML = `<div class="janela janela-carga" role="dialog" aria-modal="true">
-        <div class="janela-topo"><div><h2>Receber carga</h2><p class="texto-suave">${esc(c.posto)} · ${esc(c.fornecedor)}${c.numero ? ' · NF ' + esc(c.numero) : ''}</p></div>
+        <div class="janela-topo"><div><h2>${c.status === 'parcial' ? 'Registrar o restante' : 'Registrar descarga'}</h2><p class="texto-suave">${esc(c.posto)} · ${esc(c.fornecedor)}${c.numero ? ' · NF ' + esc(c.numero) : ''}</p></div>
             <button type="button" class="botao-fechar" data-r="fechar" aria-label="Fechar">&times;</button></div>
         ${c.transporte ? `<p class="carga-aviso carga-lacres">${icone('caminhao')} ${esc(c.transporte)}</p>` : ''}
         <form id="form-recebimento">
@@ -298,29 +329,75 @@ function abrirRecebimento(c) {
                 <div><label class="rotulo" for="rec-data">Data e hora da descarga</label><input type="datetime-local" id="rec-data" class="campo" value="${agora}" required></div>
                 <div><label class="rotulo" for="rec-resp">Quem conferiu</label><input id="rec-resp" class="campo" maxlength="60" placeholder="Nome de quem acompanhou" required></div>
             </div>
-            <div class="rec-produtos-lista">${prods.map(p => `<span class="carga-item"><small>${rotulosProdutos[p] || p}</small><b>${num(c.itens[p])} L</b></span>`).join('')}</div>
+            <p class="dica">Informe quanto foi <b>descarregado neste posto agora</b>. Se não coube tudo no tanque, diga o que aconteceu com o restante.</p>
+            <div class="rec-produtos">${prods.map(p => `<div class="rec-produto" data-prod="${p}">
+                <strong>${rotulosProdutos[p] || p} <small>nota: ${num(c.itens[p])} ${unidade(p)}${falta[p] < c.itens[p] ? ` · falta: ${num(falta[p])}` : ''}</small></strong>
+                <div><label class="rotulo" for="rec-qtd-${p}">Descarregado aqui</label><input type="number" min="0" step="1" inputmode="numeric" id="rec-qtd-${p}" class="campo" data-qtd="${p}" value="${falta[p]}"></div>
+                <div class="rec-resto oculto" data-resto="${p}">
+                    <p class="rec-resto-txt"></p>
+                    <label class="caixa-marcar"><input type="radio" name="resto-${p}" value="caminhao" checked> Ficou no caminhão (descarrega depois)</label>
+                    ${PROD_EMPRESTIMO[p] ? `<label class="caixa-marcar"><input type="radio" name="resto-${p}" value="outro"> Foi para outro posto (vira empréstimo)</label>
+                    <select class="campo oculto" data-destino="${p}"><option value="">Qual posto recebeu?</option>${outros.map(o => `<option>${esc(o)}</option>`).join('')}</select>` : ''}
+                </div>
+            </div>`).join('')}</div>
             <label class="caixa-marcar"><input type="checkbox" id="rec-lacres"> Lacres conferidos e intactos</label>
-            <div><label class="rotulo" for="rec-obs">Observação (opcional)</label><input id="rec-obs" class="campo" maxlength="300" placeholder="Ex.: chegou com atraso, motorista João"></div>
+            <div><label class="rotulo" for="rec-obs">Observação (opcional)</label><input id="rec-obs" class="campo" maxlength="300" placeholder="Ex.: tanque cheio, resto amanhã"></div>
             <div class="acoes">
                 <button type="button" class="botao botao-claro" data-r="fechar">Voltar</button>
-                <button type="submit" class="botao botao-sucesso">${icone('check')} Confirmar recebimento</button>
+                <button type="submit" class="botao botao-sucesso">${icone('check')} Confirmar</button>
             </div>
         </form></div>`;
     document.body.appendChild(fundo);
     const fechar = () => fundo.remove();
     fundo.addEventListener('click', (e) => { if (e.target === fundo || e.target.closest('[data-r="fechar"]')) fechar(); });
+    const atualizarResto = () => prods.forEach(p => {
+        const q = Math.max(0, Math.round(Number(fundo.querySelector(`[data-qtd="${p}"]`).value || 0)));
+        const resto = falta[p] - q, bloco = fundo.querySelector(`[data-resto="${p}"]`);
+        bloco.classList.toggle('oculto', resto <= 0);
+        bloco.querySelector('.rec-resto-txt').innerHTML = resto > 0 ? `Restante: <b>${num(resto)} ${unidade(p)}</b>` : '';
+        const outro = fundo.querySelector(`input[name="resto-${p}"][value="outro"]`)?.checked;
+        fundo.querySelector(`[data-destino="${p}"]`)?.classList.toggle('oculto', !outro);
+    });
+    fundo.addEventListener('input', atualizarResto);
+    fundo.addEventListener('change', atualizarResto);
+    atualizarResto();
     $('form-recebimento').onsubmit = async (e) => {
         e.preventDefault();
         const responsavel = $('rec-resp').value.trim().replace(/\s+/g, ' ');
         if (responsavel.length < 2) return aviso('Informe quem conferiu a descarga.', 'erro');
-        const rec = { data: $('rec-data').value.slice(0, 16), responsavel: responsavel.slice(0, 60), lacres: $('rec-lacres').checked };
-        if ($('rec-obs').value.trim()) rec.obs = $('rec-obs').value.trim().slice(0, 300);
-        if (!rec.lacres && !await confirmar('Lacres', 'Os lacres NÃO foram marcados como conferidos. Confirmar mesmo assim?', 'Confirmar')) return;
+        const dataHoraDesc = $('rec-data').value.slice(0, 16);
+        if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(dataHoraDesc)) return aviso('Informe a data e a hora da descarga.', 'erro');
+        const itens = {}, transferencias = {}, emprestimos = {};
+        let completa = true;
+        for (const p of prods) {
+            const q = Math.round(Number(fundo.querySelector(`[data-qtd="${p}"]`).value || 0));
+            if (q < 0 || q > falta[p]) return aviso(`${rotulosProdutos[p]}: descarregado não pode passar de ${num(falta[p])}.`, 'erro');
+            itens[p] = q;
+            const resto = falta[p] - q;
+            if (resto <= 0) continue;
+            if (fundo.querySelector(`input[name="resto-${p}"][value="outro"]`)?.checked) {
+                const destino = fundo.querySelector(`[data-destino="${p}"]`).value;
+                if (!destino) return aviso(`${rotulosProdutos[p]}: escolha o posto que recebeu o restante.`, 'erro');
+                const [a, m, d] = [dataHoraDesc.slice(0, 4), dataHoraDesc.slice(5, 7), dataHoraDesc.slice(8, 10)];
+                const dia = diaDasVendasPelaHora(new Date(+a, +m - 1, +d, +dataHoraDesc.slice(11, 13), +dataHoraDesc.slice(14, 16)));
+                const emp = dadosEmprestimo({ data: dia, origem: c.posto, destino, produto: PROD_EMPRESTIMO[p], volume: resto });
+                emprestimos[emp.id] = emp.dados;
+                transferencias[p] = { posto: destino, litros: resto, emprestimo: emp.id };
+            } else completa = false;
+        }
+        if (!Object.values(itens).some(q => q > 0) && !Object.keys(transferencias).length) return aviso('Informe quanto foi descarregado.', 'erro');
+        const desc = { data: dataHoraDesc, responsavel: responsavel.slice(0, 60), lacres: $('rec-lacres').checked, itens };
+        if (Object.keys(transferencias).length) desc.transferencias = transferencias;
+        if ($('rec-obs').value.trim()) desc.obs = $('rec-obs').value.trim().slice(0, 300);
+        // produtos da nota que já estavam completos continuam completos
+        if (!desc.lacres && !await confirmar('Lacres', 'Os lacres NÃO foram marcados como conferidos. Confirmar mesmo assim?', 'Confirmar')) return;
         await comEspera(e.submitter, async () => {
             try {
-                await receberCarga(c.posto, c, rec);
-                registrarLog('carga', `Recebeu a carga ${c.numero ? 'NF ' + c.numero + ' ' : ''}em ${c.posto} (${resumoItens(c.itens)}), conferida por ${rec.responsavel}`);
-                aviso('Recebimento registrado!');
+                await registrarDescarga(c.posto, c, desc, completa ? 'recebida' : 'parcial', emprestimos);
+                const partes = Object.entries(itens).filter(([, q]) => q > 0).map(([p, q]) => `${rotulosProdutos[p]} ${num(q)} L`);
+                const transf = Object.entries(transferencias).map(([p, t]) => `${num(t.litros)} L de ${rotulosProdutos[p]} para o ${t.posto} (empréstimo)`);
+                registrarLog('carga', `Registrou descarga ${completa ? 'final' : 'parcial'} da carga ${c.numero ? 'NF ' + c.numero + ' ' : ''}em ${c.posto}: ${partes.join(', ') || 'nada aqui'}${transf.length ? '; ' + transf.join(', ') : ''}. Conferida por ${desc.responsavel}`);
+                aviso(completa ? 'Descarga registrada. Carga recebida!' : 'Descarga parcial registrada. O restante continua a caminho.');
                 fechar();
                 recarregar();
             } catch (err) { console.error(err); aviso('Não foi salvo: ' + err.message, 'erro'); }
@@ -367,6 +444,19 @@ export function ativarCargas() {
         if (!c) return;
         if (b.dataset.carga === 'receber') abrirRecebimento(c);
         if (b.dataset.carga === 'editar') abrirEdicao(c);
+        if (b.dataset.carga === 'estornar') {
+            const transf = Object.values(c.descargas || {}).flatMap(d => Object.values(d.transferencias || {}));
+            const motivo = await pedirTexto('Estornar recebimento', `A carga ${c.numero ? 'NF ' + c.numero + ' ' : ''}de ${c.posto} volta para "a caminho" e as descargas registradas são desfeitas${transf.length ? `, junto com ${transf.length} empréstimo(s) criado(s) nelas` : ''}.`, 'Motivo (ex.: registrei 62 mil mas só descarregou 45 mil)', 'Estornar');
+            if (motivo === null) return;
+            await comEspera(b, async () => {
+                try {
+                    await estornarRecebimento(c.posto, c, motivo || 'sem motivo');
+                    registrarLog('carga', `Estornou o recebimento da carga ${c.numero ? 'NF ' + c.numero + ' ' : ''}de ${c.posto}${motivo ? ': ' + motivo : ''}`);
+                    aviso('Recebimento estornado. A carga voltou para "a caminho".');
+                    recarregar();
+                } catch (err) { aviso('Não foi possível estornar: ' + err.message, 'erro'); }
+            });
+        }
         if (b.dataset.carga === 'cancelar') {
             const motivo = await pedirTexto('Cancelar carga', `Cancelar a carga ${c.numero ? 'NF ' + c.numero : ''} de ${c.posto}? Ela sai da lista "A caminho".`, 'Motivo (ex.: lançada em duplicidade)', 'Anular');
             if (motivo === null) return;

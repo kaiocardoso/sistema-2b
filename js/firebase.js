@@ -1,6 +1,6 @@
 // Conexão com o Firebase (banco + login)
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-import { getDatabase, ref, set, get, push, serverTimestamp, onValue, query, orderByChild, orderByKey, equalTo, startAt, endAt, limitToLast } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+import { getDatabase, ref, set, get, update, push, serverTimestamp, onValue, query, orderByChild, orderByKey, equalTo, startAt, endAt, limitToLast } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged, setPersistence, browserSessionPersistence } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 import { firebaseConfig } from "./config.js";
 
@@ -11,7 +11,7 @@ export const auth = getAuth(app);
 // A sessão dura enquanto a aba estiver aberta
 try { await setPersistence(auth, browserSessionPersistence); } catch (e) { console.warn('Persistência padrão', e); }
 
-export { ref, set, get, push, serverTimestamp, onValue, query, orderByChild, orderByKey, equalTo, startAt, endAt, limitToLast, signInWithEmailAndPassword, signOut, onAuthStateChanged };
+export { ref, set, get, update, push, serverTimestamp, onValue, query, orderByChild, orderByKey, equalTo, startAt, endAt, limitToLast, signInWithEmailAndPassword, signOut, onAuthStateChanged };
 
 // Caminhos no banco (os mesmos desde a primeira versão do sistema)
 export const CAMINHO = {
