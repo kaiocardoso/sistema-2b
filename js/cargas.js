@@ -132,6 +132,7 @@ export async function carregarCargasGerente() {
         $('cargas-caminho').innerHTML = caminho.map(c => cartao(c, {})).join('') || '<div class="vazio-lista">Nenhuma carga a caminho no momento.</div>';
         $('cargas-recebidas').innerHTML = recebidas.map(c => cartao(c, {})).join('') || '<div class="vazio-lista">Nenhuma carga recebida ainda.</div>';
         resumoChip($('gerente-cargas-resumo'), caminho.length);
+        sincronizarDescargasCaixa(posto, cache[posto]).catch(e => console.warn('Sincronizar descargas', e));
     } catch (e) { console.error(e); $('cargas-caminho').innerHTML = '<div class="vazio-lista">Não foi possível carregar as cargas.</div>'; }
 }
 
@@ -152,8 +153,8 @@ export async function carregarCargasGestor() {
     }
     todasGestor = ordenar(todas);
     desenharListasGestor();
-    // administrador: acerta as descargas que o caixa enxerga (inclui as cargas lançadas antes desta versão)
-    if (ehAdmin()) for (const posto of estado.postos) { try { await sincronizarDescargasCaixa(posto, cache[posto] || []); } catch (e) { console.warn('Sincronizar descargas', posto, e); } }
+    // acerta as descargas que o caixa enxerga (inclui as registradas antes desta versão)
+    for (const posto of estado.postos) { try { await sincronizarDescargasCaixa(posto, cache[posto] || []); } catch (e) { console.warn('Sincronizar descargas', posto, e); } }
 }
 
 function desenharListasGestor() {

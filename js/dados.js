@@ -265,15 +265,17 @@ export async function buscarDescargasCaixa(posto, desdeISO) {
     return Object.values(snap.val() || {});
 }
 
-// Administrador: confere se as entradas do caixa batem com as cargas (acerta as que faltam ou sobram)
+// Confere se as entradas do caixa batem com as cargas. O administrador acerta tudo;
+// gerente e gestor só acrescentam as que faltam (as regras não deixam alterar nem apagar).
 export async function sincronizarDescargasCaixa(posto, cargas) {
+    const admin = estado.perfil?.papel === 'admin';
     const atual = (await get(ref(db, `${CAMINHO.descargas}/${posto}`))).val() || {};
     const esperado = {};
     cargas.forEach(c => Object.assign(esperado, entradasCaixa(posto, c.id, c)));
     const m = {}, base = `${CAMINHO.descargas}/${posto}/`;
-    Object.entries(esperado).forEach(([k, v]) => { const a = atual[k.slice(base.length)]; if (!a || a.data !== v.data || JSON.stringify(a.itens) !== JSON.stringify(v.itens)) m[k] = v; });
+    Object.entries(esperado).forEach(([k, v]) => { const a = atual[k.slice(base.length)]; if (!a || (admin && (a.data !== v.data || JSON.stringify(a.itens) !== JSON.stringify(v.itens)))) m[k] = v; });
     const ids = new Set(cargas.map(c => c.id));
-    Object.keys(atual).forEach(k => { if (!esperado[base + k] && ids.has(k.split('_')[0])) m[base + k] = null; });
+    if (admin) Object.keys(atual).forEach(k => { if (!esperado[base + k] && ids.has(k.split('_')[0])) m[base + k] = null; });
     if (Object.keys(m).length) await update(ref(db), m);
     return Object.keys(m).length;
 }
