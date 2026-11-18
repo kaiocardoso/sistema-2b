@@ -243,10 +243,46 @@ export async function cargaExiste(posto, id) {
     return (await get(ref(db, `${CAMINHO.cargas}/${posto}/${id}`))).exists();
 }
 
+// ---------- Descargas para o caixa: só data e litros, guardadas à parte (o caixa não lê as notas) ----------
+// chave = <id da carga>_<id da descarga> (ou _r quando a carga foi recebida de uma vez)
+export function entradasCaixa(posto, id, c) {
+    const out = {};
+    if (!c || c.status === 'cancelada' || c.status === 'a_caminho') return out;
+    const fisico = (itens) => Object.fromEntries(Object.entries(itens || {}).filter(([, l]) => Number(l) > 0).map(([p, l]) => [p, Number(l)]));
+    if (c.descargas) Object.entries(c.descargas).forEach(([k, d]) => { const itens = fisico(d.itens); if (d.data && Object.keys(itens).length) out[`${CAMINHO.descargas}/${posto}/${id}_${k}`] = { data: d.data, itens }; });
+    else if (c.recebimento?.data) { const itens = fisico(c.itens); if (Object.keys(itens).length) out[`${CAMINHO.descargas}/${posto}/${id}_r`] = { data: c.recebimento.data, itens }; }
+    return out;
+}
+// Troca as entradas de uma carga (apaga as antigas, grava as novas)
+const trocaEntradas = (posto, id, antiga, nova) => {
+    const m = {};
+    Object.keys(entradasCaixa(posto, id, antiga)).forEach(k => { m[k] = null; });
+    return Object.assign(m, entradasCaixa(posto, id, nova));
+};
+
+export async function buscarDescargasCaixa(posto, desdeISO) {
+    const snap = await get(query(ref(db, `${CAMINHO.descargas}/${posto}`), orderByChild('data'), startAt(desdeISO)));
+    return Object.values(snap.val() || {});
+}
+
+// Administrador: confere se as entradas do caixa batem com as cargas (acerta as que faltam ou sobram)
+export async function sincronizarDescargasCaixa(posto, cargas) {
+    const atual = (await get(ref(db, `${CAMINHO.descargas}/${posto}`))).val() || {};
+    const esperado = {};
+    cargas.forEach(c => Object.assign(esperado, entradasCaixa(posto, c.id, c)));
+    const m = {}, base = `${CAMINHO.descargas}/${posto}/`;
+    Object.entries(esperado).forEach(([k, v]) => { const a = atual[k.slice(base.length)]; if (!a || a.data !== v.data || JSON.stringify(a.itens) !== JSON.stringify(v.itens)) m[k] = v; });
+    const ids = new Set(cargas.map(c => c.id));
+    Object.keys(atual).forEach(k => { if (!esperado[base + k] && ids.has(k.split('_')[0])) m[base + k] = null; });
+    if (Object.keys(m).length) await update(ref(db), m);
+    return Object.keys(m).length;
+}
+
 export async function lancarCarga(posto, carga, recebimento = null) {
     const r = carga.chave ? ref(db, `${CAMINHO.cargas}/${posto}/${carga.chave}`) : push(ref(db, `${CAMINHO.cargas}/${posto}`));
     const extra = recebimento ? { status: 'recebida', recebimento: { ...recebimento, em: serverTimestamp(), por: auth.currentUser.email, porNome: String(estado.perfil.nome).slice(0, 80) } } : { status: 'a_caminho' };
-    await set(r, { ...carga, ...extra, criadoEm: serverTimestamp(), criadoPor: auth.currentUser.email });
+    const nova = { ...carga, ...extra, criadoEm: serverTimestamp(), criadoPor: auth.currentUser.email };
+    await update(ref(db), { [`${CAMINHO.cargas}/${posto}/${r.key}`]: nova, ...entradasCaixa(posto, r.key, nova) });
     return r.key;
 }
 
@@ -262,7 +298,8 @@ export async function registrarDescarga(posto, carga, descarga, novoStatus, empr
     const id = push(ref(db, `${base}/descargas`)).key;
     const mudancas = {
         [`${base}/descargas/${id}`]: { ...descarga, em: serverTimestamp(), por: auth.currentUser.email, porNome: String(estado.perfil.nome).slice(0, 80) },
-        [`${base}/status`]: novoStatus
+        [`${base}/status`]: novoStatus,
+        ...entradasCaixa(posto, carga.id, { status: novoStatus, descargas: { [id]: descarga } })
     };
     Object.entries(emprestimos).forEach(([eid, e]) => { mudancas[`${CAMINHO.emprestimos}/${eid}`] = e; });
     await update(ref(db), mudancas);
@@ -271,7 +308,7 @@ export async function registrarDescarga(posto, carga, descarga, novoStatus, empr
 // Estorno (administrador): a carga volta para "a caminho" e os empréstimos criados nas descargas são apagados
 export async function estornarRecebimento(posto, carga, motivo) {
     const { id, posto: _p, recebimento, descargas, ...resto } = carga;
-    const mudancas = { [`${CAMINHO.cargas}/${posto}/${id}`]: { ...resto, status: 'a_caminho', editadoEm: serverTimestamp(), estorno: { em: serverTimestamp(), por: auth.currentUser.email, motivo: String(motivo).slice(0, 300) } } };
+    const mudancas = { [`${CAMINHO.cargas}/${posto}/${id}`]: { ...resto, status: 'a_caminho', editadoEm: serverTimestamp(), estorno: { em: serverTimestamp(), por: auth.currentUser.email, motivo: String(motivo).slice(0, 300) } }, ...trocaEntradas(posto, id, carga, null) };
     Object.values(descargas || {}).forEach(d => Object.values(d.transferencias || {}).forEach(t => { if (t.emprestimo) mudancas[`${CAMINHO.emprestimos}/${t.emprestimo}`] = null; }));
     await update(ref(db), mudancas);
 }
@@ -284,12 +321,18 @@ export function dadosEmprestimo({ data, origem, destino, produto, volume }) {
     return { id: String(timestamp), dados: { data, origem, destino, produto, volume, devolvido: 0, status: 'pendente', timestamp, criadoPor: quem, atualizadoPor: `Criado por ${quem} (descarga de nota)`, criadoPorEmail: email, atualizadoPorEmail: email } };
 }
 
-export async function editarCarga(posto, carga) {
-    await gravarCarga(posto, { ...carga, editadoEm: serverTimestamp() });
+// Grava a carga inteira (administrador) e acerta as entradas do caixa junto
+async function gravarComEntradas(posto, antiga, nova) {
+    const { id, posto: _p, ...resto } = nova;
+    await update(ref(db), { [`${CAMINHO.cargas}/${posto}/${id}`]: resto, ...trocaEntradas(posto, id, antiga, nova) });
+}
+
+export async function editarCarga(posto, carga, antiga = carga) {
+    await gravarComEntradas(posto, antiga, { ...carga, editadoEm: serverTimestamp() });
 }
 
 export async function cancelarCarga(posto, carga, motivo) {
-    await gravarCarga(posto, { ...carga, status: 'cancelada', cancelamento: { em: serverTimestamp(), por: auth.currentUser.email, motivo: String(motivo).slice(0, 300) } });
+    await gravarComEntradas(posto, carga, { ...carga, status: 'cancelada', cancelamento: { em: serverTimestamp(), por: auth.currentUser.email, motivo: String(motivo).slice(0, 300) } });
 }
 
 export async function buscarCargas(posto, limite = 200) {

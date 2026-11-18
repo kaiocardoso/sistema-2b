@@ -2,7 +2,7 @@
 // Administrador lança (XML da NF-e/CT-e ou manual) → aparece "A caminho" para o posto
 // → gerente marca como recebida (data, responsável, régua antes/depois, lacres, observação).
 import { configPostos, rotulosProdutos, TOLERANCIA_ESTOQUE, unidade, diaDasVendasPelaHora } from "./config.js";
-import { estado, cargaExiste, lancarCarga, registrarDescarga, estornarRecebimento, dadosEmprestimo, editarCarga, cancelarCarga, buscarCargas, registrarLog } from "./dados.js";
+import { estado, cargaExiste, lancarCarga, registrarDescarga, estornarRecebimento, dadosEmprestimo, editarCarga, cancelarCarga, buscarCargas, registrarLog, sincronizarDescargasCaixa } from "./dados.js";
 import { lerXML, numeroDaChave } from "./xml-cargas.js";
 import { $, esc, num, dataBR, hojeISO, aviso, comEspera, confirmar, pedirTexto } from "./util.js";
 import { icone } from "./icones.js";
@@ -152,6 +152,8 @@ export async function carregarCargasGestor() {
     }
     todasGestor = ordenar(todas);
     desenharListasGestor();
+    // administrador: acerta as descargas que o caixa enxerga (inclui as cargas lançadas antes desta versão)
+    if (ehAdmin()) for (const posto of estado.postos) { try { await sincronizarDescargasCaixa(posto, cache[posto] || []); } catch (e) { console.warn('Sincronizar descargas', posto, e); } }
 }
 
 function desenharListasGestor() {
@@ -275,7 +277,7 @@ async function lancar(r, botao) {
                 const novo = { ...orig, ...c };
                 if (orig.recebimento && !orig.descargas && r.dataRecebida) novo.recebimento = { ...orig.recebimento, data: r.dataRecebida };
                 ['numero', 'transporte', 'obs'].forEach(k => { if (!(k in c)) delete novo[k]; });
-                await editarCarga(r.posto, novo);
+                await editarCarga(r.posto, novo, orig);
                 registrarLog('carga', `Editou a carga ${c.numero ? 'NF ' + c.numero + ' ' : ''}de ${r.posto}: ${resumoItens(c.itens)}, ${reais(c.valor)}`);
                 aviso('Carga atualizada!');
             } else {

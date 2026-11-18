@@ -111,7 +111,7 @@
     },
     "postos_2b_cargas": {
       "$posto": {
-        ".read": "auth != null && auth.token.email != null && (auth.token.email === 'admin@rede2b.app' || root.child('perfis').child(auth.token.email.toLowerCase().replace('.', ',')).child('postos').child($posto).val() === true) && (root.child('perfis').child(auth.token.email.toLowerCase().replace('.', ',')).child('papel').val() === 'gerente' || root.child('perfis').child(auth.token.email.toLowerCase().replace('.', ',')).child('papel').val() === 'gestor' || root.child('perfis').child(auth.token.email.toLowerCase().replace('.', ',')).child('papel').val() === 'caixa' || auth.token.email === 'admin@rede2b.app')",
+        ".read": "auth != null && auth.token.email != null && (auth.token.email === 'admin@rede2b.app' || root.child('perfis').child(auth.token.email.toLowerCase().replace('.', ',')).child('postos').child($posto).val() === true) && (root.child('perfis').child(auth.token.email.toLowerCase().replace('.', ',')).child('papel').val() === 'gerente' || root.child('perfis').child(auth.token.email.toLowerCase().replace('.', ',')).child('papel').val() === 'gestor' || auth.token.email === 'admin@rede2b.app')",
         ".indexOn": [
           "criadoEm",
           "status"
@@ -259,6 +259,29 @@
           },
           "cancelamento": {
             ".validate": "auth.token.email === 'admin@rede2b.app'"
+          },
+          "$outro": {
+            ".validate": false
+          }
+        }
+      }
+    },
+    "postos_2b_descargas": {
+      "$posto": {
+        ".read": "auth != null && auth.token.email != null && (auth.token.email === 'admin@rede2b.app' || root.child('perfis').child(auth.token.email.toLowerCase().replace('.', ',')).child('postos').child($posto).val() === true) && (root.child('perfis').child(auth.token.email.toLowerCase().replace('.', ',')).child('papel').val() === 'gerente' || root.child('perfis').child(auth.token.email.toLowerCase().replace('.', ',')).child('papel').val() === 'gestor' || root.child('perfis').child(auth.token.email.toLowerCase().replace('.', ',')).child('papel').val() === 'caixa' || auth.token.email === 'admin@rede2b.app')",
+        ".indexOn": [
+          "data"
+        ],
+        "$k": {
+          ".write": "auth != null && auth.token.email != null && (auth.token.email === 'admin@rede2b.app' || root.child('perfis').child(auth.token.email.toLowerCase().replace('.', ',')).child('postos').child($posto).val() === true) && (auth.token.email === 'admin@rede2b.app' || ((root.child('perfis').child(auth.token.email.toLowerCase().replace('.', ',')).child('papel').val() === 'gerente' || root.child('perfis').child(auth.token.email.toLowerCase().replace('.', ',')).child('papel').val() === 'gestor') && !data.exists() && newData.exists()))",
+          ".validate": "newData.hasChildren(['data', 'itens'])",
+          "data": {
+            ".validate": "newData.isString() && newData.val().length === 16"
+          },
+          "itens": {
+            "$p": {
+              ".validate": "newData.isNumber() && newData.val() > 0 && newData.val() < 200000"
+            }
           },
           "$outro": {
             ".validate": false

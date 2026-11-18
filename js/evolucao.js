@@ -354,7 +354,7 @@ export function abrirEvolucao(posto) {
             try {
                 const { carga } = nota;
                 const k = b.dataset.desc;
-                await editarCarga(posto, k ? { ...carga, descargas: { ...carga.descargas, [k]: { ...carga.descargas[k], data: b.dataset.nova } } } : { ...carga, recebimento: { ...carga.recebimento, data: b.dataset.nova } });
+                await editarCarga(posto, k ? { ...carga, descargas: { ...carga.descargas, [k]: { ...carga.descargas[k], data: b.dataset.nova } } } : { ...carga, recebimento: { ...carga.recebimento, data: b.dataset.nova } }, carga);
                 registrarLog('carga', `Mudou a chegada da carga ${carga.numero ? 'NF ' + carga.numero + ' ' : ''}de ${posto} para ${dataBR(b.dataset.nova.slice(0, 10))} ${b.dataset.nova.slice(11)} (data da descarga do caixa)`);
                 aviso('Data de chegada ajustada.');
                 carregar();

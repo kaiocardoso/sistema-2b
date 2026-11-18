@@ -1,6 +1,6 @@
 // Tela do caixa / pista: encerrantes e fechamento de turno
 import { bicosPostos, rotulosProdutos, getProdutosPermitidos, unidade, HORA_VIRADA_DO_DIA, diaDasVendasPelaHora, TURNOS } from "./config.js";
-import { estado, salvarPosto, escutarDados, buscarHistorico, analisarHistorico, registrarLog, buscarCargas } from "./dados.js";
+import { estado, salvarPosto, escutarDados, buscarHistorico, analisarHistorico, registrarLog, buscarDescargasCaixa } from "./dados.js";
 import { $, esc, num, temValor, agoraFormatado, aviso, comEspera, hojeISO, dataBR, diaDaSemana } from "./util.js";
 import { icone } from "./icones.js";
 import { abrirSecao } from "./secoes.js";
@@ -46,8 +46,10 @@ function turnoProvavel(ref) {
 const msDe = (s) => { const m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/.exec(s || ''); return m ? new Date(+m[1], +m[2] - 1, +m[3], +m[4], +m[5]).getTime() : 0; };
 
 async function carregarCargasTurno() {
-    try { cargasPosto = await buscarCargas(estado.postoAtivo, 100); erroCargas = false; }
-    catch (e) { console.warn('Cargas não disponíveis para o caixa', e); erroCargas = true; }
+    const desde = new Date(Date.now() - 4 * 86400000);
+    const iso = `${desde.getFullYear()}-${String(desde.getMonth() + 1).padStart(2, '0')}-${String(desde.getDate()).padStart(2, '0')}T00:00`;
+    try { cargasPosto = await buscarDescargasCaixa(estado.postoAtivo, iso); erroCargas = false; }
+    catch (e) { console.warn('Descargas não disponíveis para o caixa', e); erroCargas = true; }
     atualizarDescargas();
 }
 
@@ -64,32 +66,16 @@ function atualizarDescargas(forcar = false) {
     const ref = correcao ? Number(correcao.ts) : Date.now();
     const n = Number($('turno-fechamento').value);
     const { ini, fim } = janelaTurno(n, ref);
-    const soma = {}, notas = {};
-    cargasPosto.filter(c => c.status === 'recebida' || c.status === 'parcial').forEach(c => {
-        const partes = c.descargas ? Object.values(c.descargas).map(d => ({ data: d.data, itens: d.itens || {} })) : (c.recebimento?.data ? [{ data: c.recebimento.data, itens: c.itens || {} }] : []);
-        partes.forEach(pt => {
-            const ms = msDe(pt.data);
-            if (!(ms >= ini && ms < fim)) return;
-            Object.entries(pt.itens).forEach(([p, l]) => {
-                if (!(Number(l) > 0)) return;
-                soma[p] = (soma[p] || 0) + Number(l);
-                (notas[p] ||= []).push(`${c.numero ? 'NF ' + c.numero : 'carga'} ${num(Number(l))} às ${pt.data.slice(11, 16)}`);
-            });
-        });
+    const soma = {};
+    cargasPosto.forEach(d => {
+        const ms = msDe(d.data);
+        if (!(ms >= ini && ms < fim)) return;
+        Object.entries(d.itens || {}).forEach(([p, l]) => { if (Number(l) > 0) soma[p] = (soma[p] || 0) + Number(l); });
     });
-    const d1 = new Date(ini), d2 = new Date(fim - 1);
-    $('turno-aviso').textContent = erroCargas ? 'Não foi possível ler as cargas registradas: preencha a descarga à mão.'
-        : `De ${d1.toLocaleDateString('pt-BR').slice(0, 5)} ${String(d1.getHours()).padStart(2, '0')}h até ${d2.toLocaleDateString('pt-BR').slice(0, 5)} ${String((d2.getHours() + 1) % 24).padStart(2, '0')}h. A descarga vem das cargas registradas pelo gerente nesse horário.`;
     produtos.forEach(p => {
-        const el = $(`${p}-des`), dica = $(`${p}-des-nota`);
-        if (!el) return;
-        const total = soma[p] || 0;
-        if (!correcao && (forcar || el.value === '' || el.dataset.auto === '1')) { el.value = total ? String(total) : ''; el.dataset.auto = '1'; calcularLinha(p); }
-        const digitado = Number(el.value) || 0;
-        if (dica) {
-            dica.innerHTML = total ? `Notas: ${esc(notas[p].join('; '))}` : (erroCargas ? '' : 'Nenhuma descarga registrada no turno');
-            if (digitado !== total) dica.innerHTML += `<br><b class="dica-alerta">Diferente das cargas registradas (${num(total)})</b>`;
-        }
+        const el = $(`${p}-des`);
+        if (!el || correcao) return;
+        if (forcar || el.value === '' || el.dataset.auto === '1') { const t = soma[p] || 0; el.value = t ? String(t) : ''; el.dataset.auto = '1'; calcularLinha(p); }
     });
 }
 
@@ -118,7 +104,7 @@ function montarFormularios() {
         <div class="linha-produto">
             <div class="produto-nome">${rotulosProdutos[p]} <small>${unidade(p) === 'un' ? 'unidades' : 'litros'}</small></div>
             ${campo(p, 'ini', 'Est. inicial', `<small class="dica" id="${p}-ant"></small>`)}
-            ${campo(p, 'des', 'Descarga', `<small class="dica" id="${p}-des-nota"></small>`)}
+            ${campo(p, 'des', 'Descarga')}
             ${campo(p, 'ven', 'Vendido')}
             <div class="celula"><label>Est. final</label><div id="${p}-fin" class="resultado">0</div></div>
             ${campo(p, 'reg', 'Régua')}
@@ -134,7 +120,6 @@ function montarFormularios() {
         if (!e.target.dataset.produto) return;
         if (e.target.id.endsWith('-des')) { e.target.dataset.auto = '0'; }
         calcularLinha(e.target.dataset.produto);
-        if (e.target.id.endsWith('-des')) atualizarDescargas();
     };
     prepararTurno();
     $('form-encerrantes').onsubmit = salvarEncerrantes;
