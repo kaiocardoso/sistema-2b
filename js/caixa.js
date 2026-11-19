@@ -7,6 +7,7 @@ import { abrirSecao } from "./secoes.js";
 
 let produtos = [];
 let ultimoFechamento = null;   // { ts, reg } do último fechamento de hoje
+let reguaFechamento = {};      // régua de cada produto no último fechamento de turno (ignora atualizações rápidas)
 let correcao = null;           // fechamento que está sendo corrigido
 
 const TEXTO_BOTAO = `${icone('mensagem')} Salvar e copiar para o WhatsApp`;
@@ -125,7 +126,7 @@ function montarFormularios() {
 
     $('planilha-linhas').oninput = (e) => {
         if (!e.target.dataset.produto) return;
-        if (e.target.id.endsWith('-des')) { e.target.dataset.auto = '0'; }
+        if (e.target.id.endsWith('-des') || e.target.id.endsWith('-ini')) { e.target.dataset.auto = '0'; }
         calcularLinha(e.target.dataset.produto);
     };
     prepararTurno();
@@ -189,8 +190,21 @@ function limparPlanilha() {
     });
     $('total-vendido').textContent = '0';
     $('total-balde').textContent = '';
-    produtos.forEach(p => { const el = $(`${p}-des`); if (el) el.dataset.auto = '1'; });
-    if (!correcao) { prepararTurno(); atualizarDescargas(true); }
+    produtos.forEach(p => { ['des', 'ini'].forEach(t => { const el = $(`${p}-${t}`); if (el) el.dataset.auto = '1'; }); });
+    if (!correcao) { prepararTurno(); atualizarDescargas(true); preencherIniciais(true); }
+}
+
+// Régua do último fechamento de turno; sem fechamento recente, a última régua registrada
+const reguaDe = (p) => temValor(reguaFechamento[p]) ? reguaFechamento[p] : estado.dados[estado.postoAtivo]?.valores?.[p]?.regua;
+
+// Estoque inicial preenchido sozinho com a régua do último fechamento (o caixa pode mudar)
+function preencherIniciais(forcar = false) {
+    if (correcao) return;
+    produtos.forEach(p => {
+        const el = $(`${p}-ini`), r = reguaDe(p);
+        if (!el) return;
+        if (forcar || el.value === '' || el.dataset.auto === '1') { el.value = temValor(r) ? String(Number(r)) : ''; el.dataset.auto = '1'; calcularLinha(p); }
+    });
 }
 
 function desenharReferencia() {
@@ -204,10 +218,11 @@ function desenharReferencia() {
         if (el) el.textContent = temValor(e) ? `Anterior: ${num(Number(e))}` : '';
     });
     produtos.forEach(p => {
-        const r = info?.valores?.[p]?.regua;
+        const r = reguaDe(p);
         const el = $(`${p}-ant`);
         if (el) el.textContent = temValor(r) ? `Anterior: ${num(Number(r))}` : '';
     });
+    preencherIniciais();
 
     if (!info) {
         $('caixa-referencia').innerHTML = '<p class="vazio-lista">Nenhum registro anterior para este posto.</p>';
@@ -217,7 +232,7 @@ function desenharReferencia() {
     $('caixa-ref-data').textContent = info.dataFormatada || info.dataEncerrantes || 'Registrado';
 
     const tanques = getProdutosPermitidos(posto).map(p => {
-        const r = info?.valores?.[p]?.regua;
+        const r = reguaDe(p);
         return `<div class="ref-linha"><span>${rotulosProdutos[p]}</span><strong>${temValor(r) ? num(Number(r)) + ' ' + unidade(p) : '–'}</strong></div>`;
     }).join('');
     const bicos = info.encerrantes
@@ -238,14 +253,19 @@ const litrosDe = (reg) => Object.entries(reg?.valores || {}).reduce((s, [p, v]) 
 async function carregarUltimoFechamento() {
     const caixa = $('ultimo-fechamento');
     try {
-        const fim = Date.now(), inicio = fim - 30 * 3600 * 1000;   // últimas 30 horas
+        const fim = Date.now(), inicio = fim - 7 * 86400000;   // últimos 7 dias
         const { validos } = analisarHistorico(await buscarHistorico(estado.postoAtivo, inicio, fim));
-        ultimoFechamento = validos.at(-1) || null;
+        validos.sort((a, b) => a.ts - b.ts);
+        const ultimo = validos.at(-1) || null;
+        ultimoFechamento = ultimo && Number(ultimo.ts) >= fim - 30 * 3600 * 1000 ? ultimo : null;   // editar: só das últimas 30 horas
+        reguaFechamento = {};
+        validos.forEach(({ reg }) => Object.entries(reg.valores || {}).forEach(([p, v]) => { if (temValor(v?.regua)) reguaFechamento[p] = v.regua; }));
     } catch (e) {
         console.error(e);
         ultimoFechamento = null;
     }
     desenharUltimoFechamento();
+    desenharReferencia();
     atualizarDescargas();
     caixa.classList.remove('oculto');
 }
